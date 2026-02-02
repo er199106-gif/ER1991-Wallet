@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ER1991 Wallet | Personal Finance</title>
+    
+    <!-- Fonts: Tajawal (Arabic) & Inter (English) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons: FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Libraries for Export (SheetJS & html2canvas) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        /* --- CSS Variables & Theme --- */
+        :root {
+            /* Colors: Navy / Emerald / Soft Gray */
+            --primary-navy: #0f172a;
+            --primary-light: #1e293b;
+            --accent-emerald: #10b981;
+            --accent-emerald-hover: #059669;
+            --text-dark: #334155;
+            --text-light: #94a3b8;
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            
+            /* Spacing & Radius */
+            --radius-md: 0.75rem;
+            --radius-lg: 1rem;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Dark Mode Override */
+        .dark-mode {
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-dark: #f8fafc;
+            --text-light: #cbd5e1;
+            --border-color: #334155;
+        }
+
+        /* --- Global Reset & Base --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        body {
+            font-family: 'Tajawal', 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            transition: background-color 0.3s, color 0.3s;
+            height: 100vh;
+            overflow: hidden; /* App-like feel */
+        }
+
+        /* --- Typography & Utilities --- */
+        h1, h2, h3, h4 { font-weight: 700; margin-bottom: 0.5rem; }
+        .text-emerald { color: var(--accent-emerald); }
+        .text-danger { color: var(--danger); }
+        .text-sm { font-size: 0.875rem; }
+        .text-xs { font-size: 0.75rem; }
+        .font-en { font-family: 'Inter', sans-serif; }
+        .w-full { width: 100%; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-4 { gap: 1rem; }
+        .p-4 { padding: 1rem; }
+        .mt-4 { margin-top: 1rem; }
+        .hidden { display: none !important; }
+
+        /* --- Components --- */
+        
+        /* Buttons */
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-primary { background-color: var(--primary-navy); color: white; }
+        .btn-primary:hover { background-color: var(--primary-light); }
+        .btn-accent { background-color: var(--accent-emerald); color: white; }
+        .btn-accent:hover { background-color: var(--accent-emerald-hover); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-dark); }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+
+        /* Inputs */
+        .input-group { margin-bottom: 1rem; text-align: right; }
+        label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: var(--text-light); }
+        input, select, textarea {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-card);
+            color: var(--text-dark);
+            font-family: inherit;
+        }
+        input:focus, select:focus { border-color: var(--accent-emerald); }
+
+        /* Cards */
+        .card {
+            background-color: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        /* --- Layout Structure --- */
+        
+        /* Splash Screen */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--primary-navy);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 1000; color: white;
+            transition: opacity 0.5s ease-out;
+        }
+        .logo-area { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+        .logo-area span { color: var(--accent-emerald); }
+
+        /* Auth Screen */
+        #auth-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg-body);
+            z-index: 900;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .auth-card { width: 100%; max-width: 400px; }
+
+        /* Main App Layout */
+        #app-screen {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: 100vh;
+        }
+        
+        /* Sidebar */
+        aside {
+            background-color: var(--primary-navy);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+        .nav-brand { font-size: 1.5rem; font-weight: 800; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-brand span { color: var(--accent-emerald); }
+        .nav-item {
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: flex; align-items: center; gap: 0.75rem;
+            color: #94a3b8;
+            transition: 0.2s;
+        }
+        .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); color: white; }
+        .nav-item i { width: 20px; text-align: center; }
+        .user-mini-profile {
+            margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9rem; color: #cbd5e1;
+        }
+
+        /* Main Content */
+        main {
+            overflow-y: auto;
+            padding: 2rem;
+            position: relative;
+        }
+        header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;
+        }
+
+        /* Dashboard Grids */
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
+        }
+        .kpi-card { text-align: center; }
+        .kpi-value { font-size: 1.5rem; font-weight: 800; margin: 0.5rem 0; }
+        .currency-tabs { display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem; }
+        .curr-tab { 
+            font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; 
+            background: var(--bg-body); cursor: pointer; color: var(--text-light);
+        }
+        .curr-tab.active-curr { background: var(--accent-emerald); color: white; }
+
+        /* Tables */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+        th { color: var(--text-light); font-size: 0.85rem; }
+        tr:last-child td { border-bottom: none; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .status-income { background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald); }
+        .status-expense { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+        /* Tabs in Content */
+        .content-tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); }
+        .content-tab { 
+            padding-bottom: 0.5rem; cursor: pointer; color: var(--text-light); 
+            position: relative; bottom: -2px; border-bottom: 2px solid transparent;
+        }
+        .content-tab.active-tab { border-bottom-color: var(--accent-emerald); color: var(--primary-navy); font-weight: 700; }
+
+        /* Toast Notification */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
+        .toast {
+            background: var(--primary-navy); color: white; padding: 1rem 1.5rem;
+            border-radius: var(--radius-md); margin-top: 10px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+            display: flex; align-items: center; gap: 10px;
+        }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #app-screen { grid-template-columns: 1fr; }
+            aside { display: none; position: absolute; top: 0; left: 0; height: 100%; z-index: 50; width: 250px; }
+            aside.open { display: flex; }
+            .mobile-menu-btn { display: block; }
+        }
+        @media (min-width: 769px) { .mobile-menu-btn { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Splash Screen -->
+    <div id="splash-screen">
+        <div class="logo-area">ER1991 <span>Wallet</span></div>
+        <div class="text-emerald"><i class="fas fa-circle-notch fa-spin fa-2x"></i></div>
+        <p class="text-sm mt-4" style="opacity: 0.7">جاري تحميل المحفظة...</p>
+    </div>
+
+    <!-- 2. Auth Screen -->
+    <div id="auth-screen" class="hidden">
+        <div class="card auth-card">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 class="text-emerald">ER1991 Wallet</h2>
+                <p class="text-light">تسجيل الدخول للمتابعة</p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <label>اسم المستخدم (Username)</label>
+                    <input type="text" id="username" required placeholder="أدخل اسمك">
+                </div>
+                <div class="input-group">
+                    <label>البريد الإلكتروني (Email)</label>
+                    <input type="email" id="email" required placeholder="name@example.com">
+                </div>
+                <button type="submit" class="btn btn-primary w-full">دخول للنظام</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. App Screen -->
+    <div id="app-screen" class="hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="nav-brand">ER1991 <span>Wallet</span></div>
+            <nav>
+                <div class="nav-item active" onclick="router.navigate('dashboard')">
+                    <i class="fas fa-chart-pie"></i> لوحة التحكم
+                </div>
+                <div class="nav-item" onclick="router.navigate('wallet')">
+                    <i class="fas fa-wallet"></i> المحفظة (دخل/مصروف)
+                </div>
+                <div class="nav-item" onclick="router.navigate('investments')">
+                    <i class="fas fa-chart-line"></i> الاستثمارات
+                </div>
+                <div class="nav-item" onclick="router.navigate('reports')">
+                    <i class="fas fa-file-export"></i> التقارير
+                </div>
+            </nav>
+            <div class="user-mini-profile">
+                <div id="sidebar-username">User</div>
+                <div id="sidebar-email" class="text-xs" style="opacity: 0.6">email@example.com</div>
+                <button onclick="actions.logout()" class="btn btn-sm btn-outline mt-4 w-full" style="border-color: rgba(255,255,255,0.2); color: white;">
+                    <i class="fas fa-sign-out-alt"></i> خروج
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main>
+            <header>
+                <div class="flex items-center gap-4">
+                    <button class="btn btn-outline mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 id="page-title">لوحة التحكم</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-outline btn-sm" onclick="actions.toggleTheme()">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- VIEWS -->
+            
+            <!-- View: Dashboard (Wallet Summary + Global Investments) -->
+            <section id="view-dashboard">
+                <!-- Wallet KPIs -->
+                <div class="card" style="margin-bottom: 2rem;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3><i class="fas fa-wallet text-emerald"></i> ملخص المحفظة النقدية</h3>
+                        <div class="currency-tabs" id="wallet-curr-tabs">
+                            <span class="curr-tab active-curr" onclick="dashboard.setCurrency('EGP')">EGP</span>
+                            <span class="curr-tab" onclick="dashboard.setCurrency('SAR')">SAR</span>
+                            <span class="curr-tab" onclick="dashboard.setCurrency('USD')">USD</span>
+                        </div>
+                    </div>
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">إجمالي الدخل</p>
+                            <div class="kpi-value text-emerald" id="dash-income">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">إجمالي المصروفات</p>
+                            <div class="kpi-value text-danger" id="dash-expense">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">الرصيد الحالي</p>
+                            <div class="kpi-value" id="dash-balance">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Investments KPIs -->
+                <div class="card">
+                    <h3><i class="fas fa-globe text-emerald"></i> نظرة عامة على الاستثمارات</h3>
+                    <div class="kpi-grid mt-4">
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">محفظة الأسهم</p>
+                            <div class="kpi-value" id="dash-stocks-val">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">محفظة الذهب</p>
+                            <div class="kpi-value" id="dash-gold-val">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">محافظ البنوك</p>
+                            <div class="kpi-value" id="dash-banks-val">0</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View: Wallet (Transactions & Add) -->
+            <section id="view-wallet" class="hidden">
+                <div class="content-tabs">
+                    <div class="content-tab active-tab" onclick="wallet.switchTab('add')">عملية جديدة</div>
+                    <div class="content-tab" onclick="wallet.switchTab('data')">سجل العمليات</div>
+                </div>
+
+                <!-- Add Transaction Form -->
+                <div id="wallet-tab-add">
+                    <div class="card" style="max-width: 600px; margin: 0 auto;">
+                        <form id="transaction-form">
+                            <div class="flex gap-4">
+                                <div class="input-group w-full">
+                                    <label>نوع العملية</label>
+                                    <select id="t-type" onchange="wallet.toggleCategories()">
+                                        <option value="expense">مصروف (Expense)</option>
+                                        <option value="income">دخل (Income)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group w-full">
+                                    <label>المبلغ</label>
+                                    <input type="number" id="t-amount" step="0.01" required>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-4">
+                                <div class="input-group w-full">
+                                    <label>العملة</label>
+                                    <select id="t-currency">
+                                        <option value="EGP">EGP (جنيه)</option>
+                                        <option value="SAR">SAR (ريال)</option>
+                                        <option value="USD">USD (دولار)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group w-full">
+                                    <label>التاريخ</label>
+                                    <input type="date" id="t-date" required>
+                                </div>
+                            </div>
+
+                            <!-- Dynamic Categories -->
+                            <div class="input-group" id="expense-cats-group">
+                                <label>التصنيف</label>
+                                <select id="t-category-exp">
+                                    <option value="طعام ومشروبات">🍔 طعام ومشروبات</option>
+                                    <option value="مواصلات">🚕 مواصلات</option>
+                                    <option value="تسوق">🛒 تسوق</option>
+                                    <option value="فواتير">🏠 فواتير</option>
+                                    <option value="صحة">🏥 صحة</option>
+                                    <option value="تعليم">🎓 تعليم</option>
+                                    <option value="ترفيه">🎉 ترفيه</option>
+                                    <option value="اتصالات">📱 اتصالات</option>
+                                    <option value="أخرى">🧾 مصروفات أخرى</option>
+                                </select>
+                            </div>
+                            <div class="input-group hidden" id="income-cats-group">
+                                <label>مصدر الدخل</label>
+                                <select id="t-category-inc">
+                                    <option value="Salary">Salary (راتب)</option>
+                                    <option value="Bonus">Bonus (مكافأة)</option>
+                                    <option value="Investment Return">Investment Return</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>طريقة الدفع</label>
+                                <select id="t-method">
+                                    <option value="Cash">كاش (Cash)</option>
+                                    <option value="Instapay">Instapay</option>
+                                    <option value="Bank Transfer">تحويل بنكي</option>
+                                    <option value="Credit Card">بطاقة ائتمان</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>ملاحظات (اختياري)</label>
+                                <textarea id="t-notes" rows="2"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-full">حفظ العملية</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Transactions Table -->
+                <div id="wallet-tab-data" class="hidden">
+                    <div class="card">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3>آخر العمليات</h3>
+                            <div class="flex gap-2">
+                                <input type="text" id="wallet-search" placeholder="بحث..." onkeyup="wallet.renderTable()" style="padding: 0.4rem; width: 150px;">
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table id="wallet-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>النوع</th>
+                                        <th>التصنيف</th>
+                                        <th>المبلغ</th>
+                                        <th>العملة</th>
+                                        <th>الطريقة</th>
+                                        <th>إجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody><!-- Rows by JS --></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View: Investments -->
+            <section id="view-investments" class="hidden">
+                <div class="content-tabs">
+                    <div class="content-tab active-tab" onclick="inv.switchTab('stocks')">📈 الأسهم والصناديق</div>
+                    <div class="content-tab" onclick="inv.switchTab('gold')">🪙 الذهب</div>
+                    <div class="content-tab" onclick="inv.switchTab('banks')">🏦 محافظ البنوك</div>
+                </div>
+
+                <!-- 1. Stocks -->
+                <div id="inv-tab-stocks">
+                    <div class="flex flex-col gap-4">
+                        <!-- Form -->
+                        <div class="card">
+                            <h4>طلب تداول (شراء/بيع)</h4>
+                            <form id="stock-form" class="flex flex-col gap-4 mt-4" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <div>
+                                    <label>نوع العملية</label>
+                                    <select id="st-type" onchange="inv.toggleStockInputs()">
+                                        <option value="buy">شراء (Buy)</option>
+                                        <option value="sell">بيع (Sell)</option>
+                                        <option value="div">توزيعات أرباح (Dividends)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label>اسم السهم</label>
+                                    <input type="text" id="st-name" list="stock-list" required placeholder="مثال: Apple">
+                                    <datalist id="stock-list"></datalist>
+                                </div>
+                                <div id="st-date-group">
+                                    <label>التاريخ</label>
+                                    <input type="date" id="st-date" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>الكمية</label>
+                                    <input type="number" id="st-qty" step="0.01" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>السعر (للسهم)</label>
+                                    <input type="number" id="st-price" step="0.01" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>العمولة</label>
+                                    <input type="number" id="st-comm" step="0.01" value="0">
+                                </div>
+                                <div class="input-group" style="display: flex; align-items: flex-end;">
+                                    <button type="submit" class="btn btn-primary w-full">تنفيذ</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Holdings Table -->
+                        <div class="card" id="stock-results-area">
+                            <div class="flex justify-between mb-4">
+                                <h4>محفظة الأسهم الحالية</h4>
+                                <button class="btn btn-sm btn-outline" onclick="reports.exportTable('stocks-table')">Excel</button>
+                            </div>
+                            <div class="table-container">
+                                <table id="stocks-table">
+                                    <thead>
+                                        <tr>
+                                            <th>السهم</th>
+                                            <th>الكمية المتبقية</th>
+                                            <th>متوسط الشراء</th>
+                                            <th>إجمالي الشراء</th>
+                                            <th>إجمالي البيع</th>
+                                            <th>الأرباح (P/L)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Gold -->
+                <div id="inv-tab-gold" class="hidden">
+                    <div class="card mb-4">
+                        <h4>تداول الذهب</h4>
+                        <form id="gold-form" class="flex flex-col gap-4 mt-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <div>
+                                <label>نوع العملية</label>
+                                <select id="gd-type" onchange="inv.toggleGoldInputs()">
+                                    <option value="buy">شراء (Buy)</option>
+                                    <option value="sell">بيع (Sell)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>النوع (عينة/سبائك)</label>
+                                <input type="text" id="gd-item" required placeholder="سبائك 21">
+                            </div>
+                            <div>
+                                <label>العيار</label>
+                                <select id="gd-karat">
+                                    <option value="24">24</option>
+                                    <option value="21">21</option>
+                                    <option value="18">18</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>الوزن (جرام)</label>
+                                <input type="number" id="gd-grams" step="0.01" required>
+                            </div>
+                            <div>
+                                <label>سعر الجرام</label>
+                                <input type="number" id="gd-price" step="0.01" required>
+                            </div>
+                            <div>
+                                <label>المصنعية / عمولة</label>
+                                <input type="number" id="gd-fees" step="0.01" value="0">
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: flex-end;">
+                                <button type="submit" class="btn btn-primary w-full">حفظ</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card">
+                        <h4>سجل الذهب</h4>
+                        <div class="table-container">
+                            <table id="gold-table">
+                                <thead>
+                                    <tr>
+                                        <th>النوع</th>
+                                        <th>العيار</th>
+                                        <th>الوزن (متبقي)</th>
+                                        <th>متوسط التكلفة</th>
+                                        <th>إجمالي التكلفة</th>
+                                        <th>القيمة الحالية</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Banks -->
+                <div id="inv-tab-banks" class="hidden">
+                    <div class="card mb-4">
+                        <h4>إيداع / سحب من محفظة استثمارية</h4>
+                        <form id="bank-form" class="flex gap-4 mt-4" style="flex-wrap: wrap;">
+                            <div class="input-group" style="flex: 1; min-width: 200px;">
+                                <label>اسم المحفظة / البنك</label>
+                                <input type="text" id="bk-name" list="bank-list" required>
+                                <datalist id="bank-list"></datalist>
+                            </div>
+                            <div class="input-group" style="width: 150px;">
+                                <label>عملية</label>
+                                <select id="bk-type">
+                                    <option value="deposit">إيداع (+)</option>
+                                    <option value="withdraw">سحب (-)</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="width: 150px;">
+                                <label>المبلغ</label>
+                                <input type="number" id="bk-amount" required>
+                            </div>
+                            <div class="input-group" style="width: 150px;">
+                                <label>العملة</label>
+                                <select id="bk-curr">
+                                    <option value="EGP">EGP</option>
+                                    <option value="USD">USD</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: flex-end;">
+                                <button type="submit" class="btn btn-primary">حفظ</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card">
+                        <h4>أرصدة المحافظ</h4>
+                        <div class="table-container">
+                            <table id="banks-table">
+                                <thead>
+                                    <tr>
+                                        <th>المحفظة</th>
+                                        <th>إجمالي الإيداع</th>
+                                        <th>إجمالي السحب</th>
+                                        <th>صافي الرصيد</th>
+                                        <th>آخر حركة</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- View: Reports -->
+            <section id="view-reports" class="hidden">
+                <div class="card text-center" style="padding: 3rem;">
+                    <i class="fas fa-file-excel fa-3x text-emerald mb-4"></i>
+                    <h3>مركز التقارير والتصدير</h3>
+                    <p class="text-light mb-6">قم بتصدير بياناتك لتحليلها خارج التطبيق</p>
+                    
+                    <div class="flex justify-center gap-4 flex-wrap">
+                        <button onclick="reports.exportAll('wallet')" class="btn btn-primary">
+                            <i class="fas fa-money-bill-wave"></i> تصدير المحفظة (Excel)
+                        </button>
+                        <button onclick="reports.exportAll('investments')" class="btn btn-primary">
+                            <i class="fas fa-chart-line"></i> تصدير الاستثمارات (Excel)
+                        </button>
+                        <button onclick="reports.captureDashboard()" class="btn btn-accent">
+                            <i class="fas fa-camera"></i> حفظ لوحة التحكم كصورة
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- 1. State Management (Mini Store) ---
+        const store = {
+            state: {
+                user: null, // { name, email }
+                theme: 'light',
+                activeCurrency: 'EGP',
+                transactions: [], // Wallet
+                stocks: [],
+                gold: [],
+                banks: []
+            },
+            load() {
+                const saved = localStorage.getItem('ER1991_WALLET_DATA');
+                if (saved) {
+                    this.state = JSON.parse(saved);
+                }
+                // Set theme immediately
+                if(this.state.theme === 'dark') document.body.classList.add('dark-mode');
+            },
+            save() {
+                localStorage.setItem('ER1991_WALLET_DATA', JSON.stringify(this.state));
+                renderAll();
+            }
+        };
+
+        // --- 2. Helper Functions ---
+        const $ = (id) => document.getElementById(id);
+        const formatMoney = (amount, currency = store.state.activeCurrency) => {
+            return new Intl.NumberFormat('ar-EG', { style: 'currency', currency: currency }).format(amount);
+        };
+        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        const showToast = (msg, type='success') => {
+            const container = $('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            const icon = type === 'success' ? 'fa-check-circle text-emerald' : 'fa-exclamation-circle text-danger';
+            toast.innerHTML = `<i class="fas ${icon}"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        };
+
+        // --- 3. Actions & Logic ---
+        const actions = {
+            login: (e) => {
+                e.preventDefault();
+                const name = $('username').value;
+                const email = $('email').value;
+                store.state.user = { name, email };
+                store.save();
+                router.init();
+                showToast(`مرحباً بك يا ${name}`);
+            },
+            logout: () => {
+                if(confirm('هل تريد تسجيل الخروج؟')) {
+                    store.state.user = null;
+                    store.save();
+                    location.reload();
+                }
+            },
+            toggleTheme: () => {
+                store.state.theme = store.state.theme === 'light' ? 'dark' : 'light';
+                document.body.classList.toggle('dark-mode');
+                store.save();
+            },
+            addTransaction: (e) => {
+                e.preventDefault();
+                const type = $('t-type').value;
+                const isExpense = type === 'expense';
+                const category = isExpense ? $('t-category-exp').value : $('t-category-inc').value;
+                
+                const tx = {
+                    id: generateId(),
+                    date: $('t-date').value,
+                    amount: parseFloat($('t-amount').value),
+                    currency: $('t-currency').value,
+                    type: type,
+                    category: category,
+                    method: $('t-method').value,
+                    notes: $('t-notes').value,
+                    user: store.state.user
+                };
+
+                store.state.transactions.unshift(tx); // Add to top
+                store.save();
+                $('transaction-form').reset();
+                $('t-date').valueAsDate = new Date(); // Reset date to today
+                showToast('تم حفظ العملية بنجاح');
+            },
+            deleteTransaction: (id) => {
+                if(confirm('حذف هذه العملية؟')) {
+                    store.state.transactions = store.state.transactions.filter(t => t.id !== id);
+                    store.save();
+                }
+            },
+            addStock: (e) => {
+                e.preventDefault();
+                const op = $('st-type').value;
+                const name = $('st-name').value;
+                const qty = parseFloat($('st-qty').value);
+                const price = parseFloat($('st-price').value);
+                
+                const st = {
+                    id: generateId(),
+                    type: op,
+                    name: name,
+                    date: $('st-date').value,
+                    qty: qty,
+                    price: price,
+                    comm: parseFloat($('st-comm').value) || 0,
+                    total: (qty * price) + (parseFloat($('st-comm').value) || 0)
+                };
+
+                // Basic validation for selling
+                if(op === 'sell' || op === 'div') {
+                    // Check logic handled in calculation, but basic check here
+                }
+
+                store.state.stocks.unshift(st);
+                store.save();
+                $('stock-form').reset();
+                $('st-date').valueAsDate = new Date();
+                showToast('تم تسجيل صفقة السهم');
+            },
+            addGold: (e) => {
+                e.preventDefault();
+                const gd = {
+                    id: generateId(),
+                    type: $('gd-type').value,
+                    item: $('gd-item').value,
+                    karat: $('gd-karat').value,
+                    grams: parseFloat($('gd-grams').value),
+                    price: parseFloat($('gd-price').value),
+                    fees: parseFloat($('gd-fees').value) || 0,
+                    total: (parseFloat($('gd-grams').value) * parseFloat($('gd-price').value)) + (parseFloat($('gd-fees').value) || 0)
+                };
+                store.state.gold.unshift(gd);
+                store.save();
+                $('gold-form').reset();
+                showToast('تم تحديث الذهب');
+            },
+            addBank: (e) => {
+                e.preventDefault();
+                const bk = {
+                    id: generateId(),
+                    name: $('bk-name').value,
+                    type: $('bk-type').value,
+                    amount: parseFloat($('bk-amount').value),
+                    currency: $('bk-curr').value,
+                    date: new Date().toISOString().split('T')[0]
+                };
+                store.state.banks.unshift(bk);
+                store.save();
+                $('bank-form').reset();
+                showToast('تم تحديث المحفظة البنكية');
+            }
+        };
+
+        // --- 4. Rendering & Calculation Logic ---
+        const dashboard = {
+            setCurrency: (curr) => {
+                store.state.activeCurrency = curr;
+                document.querySelectorAll('.curr-tab').forEach(el => {
+                    el.classList.remove('active-curr');
+                    if(el.innerText === curr) el.classList.add('active-curr');
+                });
+                store.save();
+            },
+            render: () => {
+                const curr = store.state.activeCurrency;
+                const txs = store.state.transactions.filter(t => t.currency === curr);
+                
+                const income = txs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+                const expense = txs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+                const balance = income - expense;
+
+                $('dash-income').innerText = formatMoney(income, curr);
+                $('dash-expense').innerText = formatMoney(expense, curr);
+                $('dash-balance').innerText = formatMoney(balance, curr);
+
+                // Global Investments Summary (Simple Sum of Value)
+                // This is simplified. In real app, stocks need current price. Here we use (Total Buy Value) as asset value proxy or Cash Invested.
+                // Let's calculate Net Invested.
+                
+                // Stocks Net (Buy - Sell) roughly
+                const stockNet = store.state.stocks.reduce((acc, s) => {
+                   if(s.type === 'buy') return acc + s.total;
+                   if(s.type === 'sell') return acc - s.total; // simplistic
+                   return acc;
+                }, 0);
+
+                // Gold Net
+                const goldNet = store.state.gold.reduce((acc, g) => {
+                    if(g.type === 'buy') return acc + g.total;
+                    return acc - g.total;
+                }, 0);
+
+                // Banks Net
+                const bankNet = store.state.banks.reduce((acc, b) => {
+                    return b.type === 'deposit' ? acc + b.amount : acc - b.amount;
+                }, 0);
+
+                // Just showing raw numbers for demo, ideally currency converted
+                $('dash-stocks-val').innerText = formatMoney(stockNet); // Mixing currencies logic omitted for brevity, showing generic
+                $('dash-gold-val').innerText = formatMoney(goldNet);
+                $('dash-banks-val').innerText = formatMoney(bankNet);
+            }
+        };
+
+        const wallet = {
+            switchTab: (tab) => {
+                document.querySelectorAll('#view-wallet .content-tab').forEach(t => t.classList.remove('active-tab'));
+                document.querySelector(`#view-wallet .content-tab[onclick*="${tab}"]`).classList.add('active-tab');
+                
+                if(tab === 'add') {
+                    $('wallet-tab-add').classList.remove('hidden');
+                    $('wallet-tab-data').classList.add('hidden');
+                } else {
+                    $('wallet-tab-add').classList.add('hidden');
+                    $('wallet-tab-data').classList.remove('hidden');
+                    wallet.renderTable();
+                }
+            },
+            toggleCategories: () => {
+                const type = $('t-type').value;
+                if(type === 'expense') {
+                    $('expense-cats-group').classList.remove('hidden');
+                    $('income-cats-group').classList.add('hidden');
+                } else {
+                    $('expense-cats-group').classList.add('hidden');
+                    $('income-cats-group').classList.remove('hidden');
+                }
+            },
+            renderTable: () => {
+                const tbody = $('wallet-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                const search = $('wallet-search').value.toLowerCase();
+                
+                const filtered = store.state.transactions.filter(t => 
+                    t.category.toLowerCase().includes(search) || 
+                    t.notes?.toLowerCase().includes(search)
+                );
+
+                filtered.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${t.date}</td>
+                        <td><span class="status-badge ${t.type === 'income' ? 'status-income' : 'status-expense'}">${t.type === 'income' ? 'دخل' : 'مصروف'}</span></td>
+                        <td>${t.category}</td>
+                        <td style="font-weight:bold">${t.amount.toFixed(2)}</td>
+                        <td>${t.currency}</td>
+                        <td>${t.method}</td>
+                        <td><button onclick="actions.deleteTransaction('${t.id}')" class="btn btn-sm btn-outline text-danger"><i class="fas fa-trash"></i></button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+
+        const inv = {
+            switchTab: (tab) => {
+                ['stocks', 'gold', 'banks'].forEach(t => {
+                    $(`inv-tab-${t}`).classList.add('hidden');
+                    document.querySelector(`#view-investments .content-tab[onclick*="${t}"]`).classList.remove('active-tab');
+                });
+                $(`inv-tab-${tab}`).classList.remove('hidden');
+                document.querySelector(`#view-investments .content-tab[onclick*="${tab}"]`).classList.add('active-tab');
+                
+                if(tab === 'stocks') inv.renderStocks();
+                if(tab === 'gold') inv.renderGold();
+                if(tab === 'banks') inv.renderBanks();
+            },
+            toggleStockInputs: () => {
+                // Logic to show/hide fields based on Buy/Sell could go here
+            },
+            renderStocks: () => {
+                // Aggregate logic
+                const portfolio = {};
+                const data = store.state.stocks;
+                
+                // Update datalist
+                const dl = $('stock-list');
+                dl.innerHTML = '';
+                const uniqueStocks = [...new Set(data.map(s => s.name))];
+                uniqueStocks.forEach(s => { const op = document.createElement('option'); op.value = s; dl.appendChild(op); });
+
+                // Calculate Holdings
+                data.forEach(d => {
+                    if (!portfolio[d.name]) portfolio[d.name] = { qty: 0, cost: 0, soldVal: 0, comm: 0 };
+                    
+                    if (d.type === 'buy') {
+                        portfolio[d.name].qty += d.qty;
+                        portfolio[d.name].cost += d.total; // includes commission
+                    } else if (d.type === 'sell') {
+                        portfolio[d.name].qty -= d.qty;
+                        portfolio[d.name].soldVal += d.total;
+                    }
+                    portfolio[d.name].comm += d.comm;
+                });
+
+                // Render Table
+                const tbody = $('stocks-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                for (const [name, p] of Object.entries(portfolio)) {
+                    if (p.qty > 0 || p.soldVal > 0) { // Only show active or sold with history
+                        const avgPrice = p.qty > 0 ? (p.cost / p.qty) : 0; // Simplistic avg
+                        const pl = p.soldVal - (p.qty > 0 ? 0 : p.cost); // Very basic P/L approximation
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${name}</td>
+                            <td>${p.qty.toFixed(2)}</td>
+                            <td>${avgPrice.toFixed(2)}</td>
+                            <td>${p.cost.toFixed(2)}</td>
+                            <td>${p.soldVal.toFixed(2)}</td>
+                            <td class="${pl >= 0 ? 'text-emerald' : 'text-danger'}">${pl.toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                }
+            },
+            renderGold: () => {
+                // Similar to stocks but weighted by grams
+                const holdings = {};
+                store.state.gold.forEach(g => {
+                    if (!holdings[g.item]) holdings[g.item] = { grams: 0, cost: 0, sold: 0 };
+                    if(g.type === 'buy') {
+                        holdings[g.item].grams += g.grams;
+                        holdings[g.item].cost += g.total;
+                    } else {
+                        holdings[g.item].grams -= g.grams;
+                        holdings[g.item].sold += g.total;
+                    }
+                });
+                
+                const tbody = $('gold-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                for(const [name, h] of Object.entries(holdings)) {
+                    const avg = h.grams > 0 ? h.cost / h.grams : 0;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${name}</td>
+                        <td>21</td> <!-- Simplified for display -->
+                        <td>${h.grams.toFixed(2)}</td>
+                        <td>${avg.toFixed(2)}</td>
+                        <td>${h.cost.toFixed(2)}</td>
+                        <td>${(h.grams * avg).toFixed(2)}</td> <!-- Est. Value -->
+                    `;
+                    tbody.appendChild(tr);
+                }
+            },
+            renderBanks: () => {
+                const accs = {};
+                store.state.banks.forEach(b => {
+                    if(!accs[b.name]) accs[b.name] = { in: 0, out: 0, curr: b.currency, last: b.date };
+                    if(b.type === 'deposit') accs[b.name].in += b.amount;
+                    else accs[b.name].out += b.amount;
+                });
+                
+                // Update Datalist
+                const dl = $('bank-list');
+                dl.innerHTML = '';
+                Object.keys(accs).forEach(b => { const op = document.createElement('option'); op.value=b; dl.appendChild(op); });
+
+                const tbody = $('banks-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                for(const [name, b] of Object.entries(accs)) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${name}</td>
+                        <td>${b.in.toFixed(2)} ${b.curr}</td>
+                        <td>${b.out.toFixed(2)} ${b.curr}</td>
+                        <td><strong>${(b.in - b.out).toFixed(2)} ${b.curr}</strong></td>
+                        <td>${b.last}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            }
+        };
+
+        const reports = {
+            exportTable: (tableId) => {
+                const table = $(tableId);
+                const wb = XLSX.utils.table_to_book(table, {sheet: "Sheet1"});
+                XLSX.writeFile(wb, 'ER1991_Export.xlsx');
+            },
+            exportAll: (type) => {
+                if(type === 'wallet') {
+                    // Create a temp table for all wallet data
+                    const ws = XLSX.utils.json_to_sheet(store.state.transactions);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Wallet");
+                    XLSX.writeFile(wb, "ER1991_Wallet_Data.xlsx");
+                } else {
+                    // All investments
+                    const ws_stocks = XLSX.utils.json_to_sheet(store.state.stocks);
+                    const ws_gold = XLSX.utils.json_to_sheet(store.state.gold);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws_stocks, "Stocks");
+                    XLSX.utils.book_append_sheet(wb, ws_gold, "Gold");
+                    XLSX.writeFile(wb, "ER1991_Investments.xlsx");
+                }
+            },
+            captureDashboard: () => {
+                const element = $('view-dashboard');
+                html2canvas(element).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'ER1991_Dashboard.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                });
+            }
+        };
+
+        const router = {
+            init: () => {
+                $('splash-screen').classList.add('hidden');
+                if(!store.state.user) {
+                    $('auth-screen').classList.remove('hidden');
+                } else {
+                    $('app-screen').classList.remove('hidden');
+                    $('sidebar-username').innerText = store.state.user.name;
+                    $('sidebar-email').innerText = store.state.user.email;
+                    // Set dates
+                    const today = new Date().toISOString().split('T')[0];
+                    $('t-date').value = today;
+                    $('st-date').value = today;
+                    // Default view
+                    renderAll();
+                }
+            },
+            navigate: (view) => {
+                // Update Sidebar
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.querySelector(`.nav-item[onclick*="${view}"]`).classList.add('active');
+                
+                // Update Header
+                const titles = { 'dashboard': 'لوحة التحكم', 'wallet': 'المحفظة', 'investments': 'الاستثمارات', 'reports': 'التقارير' };
+                $('page-title').innerText = titles[view];
+
+                // Toggle Sections
+                ['dashboard', 'wallet', 'investments', 'reports'].forEach(v => {
+                    $(`view-${v}`).classList.add('hidden');
+                });
+                $(`view-${view}`).classList.remove('hidden');
+
+                // Refresh data if needed
+                if(view === 'dashboard') dashboard.render();
+                if(view === 'investments') inv.renderStocks(); // Default tab
+                
+                // Close mobile menu
+                $('sidebar').classList.remove('open');
+            }
+        };
+
+        function renderAll() {
+            dashboard.render();
+            wallet.renderTable();
+            inv.renderStocks();
+        }
+
+        // --- Init ---
+        window.onload = () => {
+            store.load();
+            $('login-form').addEventListener('submit', actions.login);
+            $('transaction-form').addEventListener('submit', actions.addTransaction);
+            $('stock-form').addEventListener('submit', actions.addStock);
+            $('gold-form').addEventListener('submit', actions.addGold);
+            $('bank-form').addEventListener('submit', actions.addBank);
+
+            // Simulate Splash Loading
+            setTimeout(() => {
+                router.init();
+            }, 1500);
+        };
+
+    </script>
+</body>
+</html>
