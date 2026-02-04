@@ -1,22 +1,28 @@
+<!-- PART 1: START -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ER1991 Wallet | محفظة الاستثمارات والمصروفات</title>
+    <title>ER1991 Wallet | نظام إدارة الاستثمارات</title>
     
-    <!-- Fonts & Icons -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Chart.js -->
+    
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Firebase (للتخزين السحابي) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <style>
         :root {
@@ -24,18 +30,23 @@
             --primary-light: #1e293b;
             --accent-emerald: #10b981;
             --accent-emerald-hover: #059669;
+            --accent-emerald-light: #d1fae5;
             --text-dark: #334155;
             --text-light: #94a3b8;
-            --bg-body: #f8fafc;
+            --bg-body: #f1f5f9;
             --bg-card: #ffffff;
             --border-color: #e2e8f0;
             --danger: #ef4444;
+            --danger-light: #fee2e2;
             --warning: #f59e0b;
+            --warning-light: #fef3c7;
             --info: #3b82f6;
-            
+            --info-light: #dbeafe;
+            --radius-sm: 0.375rem;
             --radius-md: 0.75rem;
             --radius-lg: 1rem;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
         .dark-mode {
@@ -46,547 +57,313 @@
             --border-color: #334155;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        
         body {
             font-family: 'Tajawal', 'Inter', sans-serif;
             background-color: var(--bg-body);
             color: var(--text-dark);
-            transition: background-color 0.3s, color 0.3s;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        h1, h2, h3, h4 { font-weight: 700; margin-bottom: 0.5rem; }
-        .text-emerald { color: var(--accent-emerald); }
-        .text-danger { color: var(--danger); }
-        .text-warning { color: var(--warning); }
-        .text-info { color: var(--info); }
-        .text-sm { font-size: 0.875rem; }
-        .text-xs { font-size: 0.75rem; }
-        .font-en { font-family: 'Inter', sans-serif; }
-        .w-full { width: 100%; }
-        .flex { display: flex; }
-        .flex-col { flex-direction: column; }
-        .items-center { align-items: center; }
-        .justify-between { justify-content: space-between; }
-        .justify-center { justify-content: center; }
-        .gap-2 { gap: 0.5rem; }
-        .gap-4 { gap: 1rem; }
-        .p-4 { padding: 1rem; }
-        .mt-2 { margin-top: 0.5rem; }
-        .mt-4 { margin-top: 1rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .hidden { display: none !important; }
-
-        .btn {
-            padding: 0.6rem 1.2rem;
-            border-radius: var(--radius-md);
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            font-family: inherit;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        .btn-primary { background-color: var(--primary-navy); color: white; }
-        .btn-primary:hover { background-color: var(--primary-light); }
-        .btn-accent { background-color: var(--accent-emerald); color: white; }
-        .btn-accent:hover { background-color: var(--accent-emerald-hover); }
-        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-dark); }
-        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
-        .btn-danger { background-color: var(--danger); color: white; }
-        .btn-danger:hover { opacity: 0.9; }
-
-        .input-group { margin-bottom: 1rem; text-align: right; }
-        label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: var(--text-light); font-weight: 500; }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.7rem;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-            background-color: var(--bg-card);
-            color: var(--text-dark);
-            font-family: inherit;
-        }
-        input:focus, select:focus, textarea:focus { border-color: var(--accent-emerald); }
-
-        .card {
-            background-color: var(--bg-card);
-            border-radius: var(--radius-lg);
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+            min-height: 100vh;
         }
 
         /* Splash Screen */
         #splash-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: var(--primary-navy);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            z-index: 1000; color: white;
-            transition: opacity 0.5s ease-out;
+            background: linear-gradient(135deg, var(--primary-navy) 0%, var(--primary-light) 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10000; color: white;
         }
-        .logo-area { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+        
+        .logo-area { font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; }
         .logo-area span { color: var(--accent-emerald); }
+        
+        .splash-loading { width: 200px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden; margin-top: 2rem; }
+        .splash-loading-bar { height: 100%; background: var(--accent-emerald); width: 0%; transition: width 0.3s; }
 
         /* Auth Screen */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: var(--bg-body);
-            z-index: 900;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .auth-card { width: 100%; max-width: 400px; }
-
-        /* Main App */
-        #app-screen {
-            display: grid;
-            grid-template-columns: 260px 1fr;
-            height: 100vh;
+            background: var(--bg-body); z-index: 900;
+            display: flex; align-items: center; justify-content: center; padding: 1rem;
         }
         
-        /* Sidebar */
+        .auth-card { width: 100%; max-width: 420px; background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+        .auth-logo { text-align: center; margin-bottom: 2rem; }
+        .auth-logo h2 { font-size: 1.75rem; color: var(--primary-navy); }
+        .auth-logo h2 span { color: var(--accent-emerald); }
+
+        /* Layout */
+        #app-screen { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+        
         aside {
-            background-color: var(--primary-navy);
-            color: white;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            border-left: 1px solid rgba(255,255,255,0.1);
+            background: var(--primary-navy); color: white; padding: 1.5rem;
+            display: flex; flex-direction: column; position: fixed;
+            height: 100vh; width: 280px; overflow-y: auto; z-index: 100;
         }
-        .nav-brand { font-size: 1.5rem; font-weight: 800; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .nav-brand { font-size: 1.5rem; font-weight: 800; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .nav-brand span { color: var(--accent-emerald); }
-        .nav-item {
-            padding: 0.8rem 1rem;
-            margin-bottom: 0.5rem;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            display: flex; align-items: center; gap: 0.75rem;
-            color: #94a3b8;
-            transition: 0.2s;
-        }
-        .nav-item:hover, .nav-item.active { background-color: rgba(255,255,255,0.1); color: white; }
-        .nav-item i { width: 20px; text-align: center; }
-        .user-mini-profile {
-            margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);
-            font-size: 0.9rem; color: #cbd5e1;
-        }
+        
+        .nav-section { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 1.5rem 0 0.5rem; }
+        .nav-item { padding: 0.9rem 1rem; margin-bottom: 0.5rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; color: #94a3b8; transition: all 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); color: white; }
+        
+        .user-mini-profile { margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        
+        main { margin-right: 280px; padding: 2rem; min-height: 100vh; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
 
-        /* Main Content */
-        main {
-            overflow-y: auto;
-            padding: 2rem;
-            position: relative;
+        /* Components */
+        .btn {
+            padding: 0.6rem 1.2rem; border-radius: var(--radius-md); border: none;
+            cursor: pointer; font-weight: 600; font-family: inherit;
+            transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem;
         }
-        header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;
+        .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+        .btn-primary { background: var(--primary-navy); color: white; }
+        .btn-accent { background: var(--accent-emerald); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-dark); }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        
+        .fab {
+            position: fixed; bottom: 2rem; left: 2rem; width: 60px; height: 60px;
+            border-radius: 50%; background: var(--accent-emerald); color: white;
+            border: none; cursor: pointer; font-size: 1.5rem; box-shadow: var(--shadow-lg);
+            z-index: 100; display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
         }
-
-        /* Dashboard */
-        .kpi-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;
+        .fab:hover { transform: scale(1.1) rotate(90deg); }
+        
+        .card {
+            background: var(--bg-card); border-radius: var(--radius-lg);
+            padding: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border-color);
         }
-        .kpi-card { text-align: center; }
-        .kpi-value { font-size: 1.5rem; font-weight: 800; margin: 0.5rem 0; }
-        .kpi-change { font-size: 0.8rem; }
-
-        /* Charts */
-        .chart-container { position: relative; height: 300px; margin-bottom: 1.5rem; }
-
-        /* Tabs */
-        .content-tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); }
-        .content-tab { 
-            padding-bottom: 0.5rem; cursor: pointer; color: var(--text-light); 
-            position: relative; bottom: -2px; border-bottom: 2px solid transparent;
+        
+        .input-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: var(--text-light); font-weight: 500; }
+        input, select, textarea {
+            width: 100%; padding: 0.7rem; border-radius: var(--radius-md);
+            border: 1px solid var(--border-color); background: var(--bg-card);
+            color: var(--text-dark); font-family: inherit;
         }
-        .content-tab.active-tab { border-bottom-color: var(--accent-emerald); color: var(--primary-navy); font-weight: 700; }
-
-        /* Tables */
-        .table-container { overflow-x: auto; margin-bottom: 1rem; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { text-align: right; padding: 0.75rem; border-bottom: 1px solid var(--border-color); }
-        th { background-color: rgba(0,0,0,0.02); font-weight: 600; color: var(--text-light); }
-        tr:hover { background-color: rgba(0,0,0,0.02); }
-        .positive { color: var(--accent-emerald); font-weight: 600; }
-        .negative { color: var(--danger); font-weight: 600; }
-        .action-btns { display: flex; gap: 0.25rem; }
-
-        /* Forms Grid */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        /* Toast */
-        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
-        .toast {
-            background: var(--primary-navy); color: white; padding: 1rem 1.5rem;
-            border-radius: var(--radius-md); margin-top: 10px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            animation: slideIn 0.3s ease-out;
-            display: flex; align-items: center; gap: 10px;
-        }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        /* Responsive */
-        @media (max-width: 768px) {
+        input:focus, select:focus { border-color: var(--accent-emerald); outline: none; }
+        
+        .content-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); overflow-x: auto; }
+        .content-tab { padding: 0.75rem 1.25rem; cursor: pointer; color: var(--text-light); white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .content-tab.active-tab { border-bottom-color: var(--accent-emerald); color: var(--accent-emerald); font-weight: 700; }
+        
+        .table-container { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { text-align: right; padding: 0.875rem 1rem; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--bg-body); color: var(--text-light); font-size: 0.8rem; font-weight: 600; }
+        tr:hover td { background: var(--bg-body); }
+        
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .status-buy { background: var(--accent-emerald-light); color: var(--accent-emerald); }
+        .status-sell { background: var(--danger-light); color: var(--danger); }
+        .status-income { background: var(--accent-emerald-light); color: var(--accent-emerald); }
+        .status-expense { background: var(--danger-light); color: var(--danger); }
+        
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .kpi-card { text-align: center; padding: 1.5rem; border-radius: var(--radius-lg); background: var(--bg-card); border: 1px solid var(--border-color); }
+        .kpi-value { font-size: 1.75rem; font-weight: 800; margin: 0.5rem 0; font-family: 'Inter', sans-serif; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; }
+        .dashboard-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
+        .col-12 { grid-column: span 12; }
+        .col-6 { grid-column: span 6; }
+        .col-4 { grid-column: span 4; }
+        
+        @media (max-width: 1024px) {
             #app-screen { grid-template-columns: 1fr; }
-            aside { display: none; position: fixed; top: 0; right: 0; height: 100%; z-index: 50; width: 250px; }
-            aside.open { display: flex; }
-            .mobile-menu-btn { display: block; }
-            main { padding: 1rem; }
+            aside { transform: translateX(100%); transition: transform 0.3s; }
+            aside.open { transform: translateX(0); }
+            main { margin-right: 0; }
+            .col-6, .col-4 { grid-column: span 12; }
         }
-        @media (min-width: 769px) { .mobile-menu-btn { display: none; } }
+        
+        .hidden { display: none !important; }
+        .text-emerald { color: var(--accent-emerald); }
+        .text-danger { color: var(--danger); }
+        .text-light { color: var(--text-light); }
+        
+        #toast-container { position: fixed; bottom: 20px; left: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast { background: var(--primary-navy); color: white; padding: 1rem 1.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 10px; }
+        @keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .app-footer { text-align: center; padding: 2rem; color: var(--text-light); font-size: 0.875rem; border-top: 1px solid var(--border-color); margin-top: 2rem; }
     </style>
 </head>
 <body>
-
-    <!-- 1. Splash Screen -->
+    <!-- PART 1: END --><!-- PART 2: START -->
+    <!-- Splash Screen -->
     <div id="splash-screen">
-        <div class="logo-area">ER1991 <span>Investment</span></div>
+        <div class="logo-area">ER1991 <span>Wallet</span></div>
         <div class="text-emerald"><i class="fas fa-circle-notch fa-spin fa-2x"></i></div>
-        <p class="text-sm mt-4" style="opacity: 0.7">جاري تحميل البيانات...</p>
+        <p class="text-sm mt-4" style="opacity: 0.7">جاري تحميل المحفظة...</p>
+        <div class="splash-loading"><div class="splash-loading-bar" id="loading-bar"></div></div>
+        <p class="text-xs mt-4" style="opacity: 0.5">© 2024 ER1991. جميع الحقوق محفوظة.</p>
     </div>
 
-    <!-- 2. Auth Screen -->
+    <!-- Auth Screen -->
     <div id="auth-screen" class="hidden">
-        <div class="card auth-card">
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <h2 class="text-emerald">ER1991 Investment Portfolio</h2>
-                <p class="text-light">تسجيل الدخول للمتابعة</p>
+        <div class="auth-card">
+            <div class="auth-logo">
+                <h2>ER1991 <span>Wallet</span></h2>
+                <p class="text-light">نظام إدارة الاستثمارات الشامل</p>
             </div>
             <form id="login-form">
                 <div class="input-group">
-                    <label>اسم المستخدم</label>
-                    <input type="text" id="username" required placeholder="أدخل اسمك" value="Ehab">
+                    <label>اسم المستخدم *</label>
+                    <input type="text" id="username" required placeholder="أدخل اسمك">
                 </div>
                 <div class="input-group">
-                    <label>البريد الإلكتروني</label>
-                    <input type="email" id="email" required placeholder="name@example.com" value="ehabrefaatwork@gmail.com">
+                    <label>البريد الإلكتروني *</label>
+                    <input type="email" id="email" required placeholder="name@example.com">
+                </div>
+                <div class="input-group">
+                    <label>كلمة المرور (للتشفير المحلي)</label>
+                    <input type="password" id="password" placeholder="اختياري">
                 </div>
                 <button type="submit" class="btn btn-primary w-full">دخول للنظام</button>
             </form>
-            <div class="mt-4 text-center text-sm">
-                <p class="text-light">لتجربة النظام، يمكنك استخدام:</p>
-                <p>المستخدم: Ehab</p>
-                <p>البريد: ehabrefaatwork@gmail.com</p>
+            <div class="mt-4 p-4" style="background: var(--bg-body); border-radius: var(--radius-md);">
+                <p class="text-sm text-light mb-2"><i class="fas fa-info-circle"></i> استيراد البيانات:</p>
+                <input type="file" id="import-file" accept=".json" onchange="actions.importData()" style="font-size: 0.8rem;">
             </div>
+            <p class="text-center text-sm text-light mt-4">© 2024 ER1991. جميع الحقوق محفوظة.</p>
         </div>
     </div>
 
-    <!-- 3. App Screen -->
+    <!-- App Screen -->
     <div id="app-screen" class="hidden">
-        <!-- Sidebar -->
         <aside id="sidebar">
-            <div class="nav-brand">ER1991 <span>Portfolio</span></div>
+            <div class="nav-brand">ER1991 <span>Wallet</span></div>
+            
+            <div class="nav-section">القائمة الرئيسية</div>
             <nav>
                 <div class="nav-item active" onclick="router.navigate('dashboard')">
                     <i class="fas fa-chart-pie"></i> لوحة التحكم
                 </div>
-                <div class="nav-item" onclick="router.navigate('trading')">
-                    <i class="fas fa-exchange-alt"></i> طلبات التداول
-                </div>
-                <div class="nav-item" onclick="router.navigate('stocks')">
-                    <i class="fas fa-chart-line"></i> بيانات الأسهم
-                </div>
                 <div class="nav-item" onclick="router.navigate('wallet')">
-                    <i class="fas fa-wallet"></i> المحفظة النقدية
+                    <i class="fas fa-wallet"></i> المحفظة (دخل/مصروف)
                 </div>
+                
+                <div class="nav-section">الاستثمارات</div>
+                <div class="nav-item" onclick="router.navigate('trading')">
+                    <i class="fas fa-chart-line"></i> التداول (أسهم)
+                </div>
+                <div class="nav-item" onclick="router.navigate('gold')">
+                    <i class="fas fa-coins"></i> الذهب
+                </div>
+                <div class="nav-item" onclick="router.navigate('portfolio')">
+                    <i class="fas fa-university"></i> محفظة الاستثمار
+                </div>
+                
+                <div class="nav-section">التقارير</div>
                 <div class="nav-item" onclick="router.navigate('reports')">
                     <i class="fas fa-file-export"></i> التقارير والتصدير
                 </div>
-                <div class="nav-item" onclick="router.navigate('import')">
-                    <i class="fas fa-file-import"></i> استيراد البيانات
-                </div>
             </nav>
+
             <div class="user-mini-profile">
-                <div id="sidebar-username">User</div>
-                <div id="sidebar-email" class="text-xs" style="opacity: 0.6">email@example.com</div>
+                <div class="user-name" id="sidebar-username">User</div>
+                <div class="user-email" id="sidebar-email" style="font-size: 0.8rem; opacity: 0.7">email@example.com</div>
+                <div class="mt-2 text-xs" id="sync-status" style="color: var(--accent-emerald)">
+                    <i class="fas fa-check-circle"></i> متزامن
+                </div>
                 <button onclick="actions.logout()" class="btn btn-sm btn-outline mt-4 w-full" style="border-color: rgba(255,255,255,0.2); color: white;">
                     <i class="fas fa-sign-out-alt"></i> خروج
                 </button>
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main>
             <header>
-                <div class="flex items-center gap-4">
-                    <button class="btn btn-outline mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="btn btn-outline" style="display: none;" id="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h2 id="page-title">لوحة التحكم</h2>
                 </div>
-                <div class="flex items-center gap-2">
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-outline btn-sm" onclick="actions.syncNow()" title="مزامنة سحابية">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                     <button class="btn btn-outline btn-sm" onclick="actions.toggleTheme()">
                         <i class="fas fa-moon"></i>
-                    </button>
-                    <button class="btn btn-outline btn-sm" onclick="actions.backupData()" title="نسخ احتياطي">
-                        <i class="fas fa-database"></i>
-                    </button>
-                    <button class="btn btn-outline btn-sm" onclick="actions.restoreData()" title="استعادة">
-                        <i class="fas fa-undo"></i>
                     </button>
                 </div>
             </header>
 
-            <!-- VIEWS -->
-            
-            <!-- View: Dashboard -->
+            <!-- VIEW: Dashboard -->
             <section id="view-dashboard">
-                <div class="card">
-                    <h3><i class="fas fa-chart-bar text-emerald"></i> نظرة عامة على المحفظة</h3>
-                    <div class="kpi-grid mt-4">
-                        <div class="kpi-card">
-                            <p class="text-light text-sm">القيمة الإجمالية للاستثمارات</p>
-                            <div class="kpi-value text-emerald" id="total-investment">0 ج.م</div>
-                        </div>
-                        <div class="kpi-card">
-                            <p class="text-light text-sm">إجمالي الأرباح/الخسائر</p>
-                            <div class="kpi-value" id="total-pl">0 ج.م</div>
-                        </div>
-                        <div class="kpi-card">
-                            <p class="text-light text-sm">عدد الصفقات النشطة</p>
-                            <div class="kpi-value" id="active-trades">0</div>
-                        </div>
-                        <div class="kpi-card">
-                            <p class="text-light text-sm">متوسط العائد</p>
-                            <div class="kpi-value" id="avg-return">0%</div>
-                        </div>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <p class="text-light text-sm">إجمالي الدخل (EGP)</p>
+                        <div class="kpi-value text-emerald" id="dash-income-egp">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <p class="text-light text-sm">إجمالي المصروفات (EGP)</p>
+                        <div class="kpi-value text-danger" id="dash-expense-egp">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <p class="text-light text-sm">رصيد المحفظة (EGP)</p>
+                        <div class="kpi-value" id="dash-balance-egp">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <p class="text-light text-sm">قيمة الأسهم</p>
+                        <div class="kpi-value text-info" id="dash-stocks-value">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <p class="text-light text-sm">قيمة الذهب</p>
+                        <div class="kpi-value text-warning" id="dash-gold-value">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <p class="text-light text-sm">العائد الكلي</p>
+                        <div class="kpi-value" id="dash-total-return">0%</div>
                     </div>
                 </div>
 
-                <!-- Charts -->
-                <div class="flex gap-4" style="flex-wrap: wrap;">
-                    <div class="card" style="flex: 1; min-width: 300px;">
-                        <h4>توزيع الاستثمارات</h4>
-                        <div class="chart-container">
-                            <canvas id="chart-distribution"></canvas>
-                        </div>
-                    </div>
-                    <div class="card" style="flex: 1; min-width: 300px;">
-                        <h4>أداء الأسهم</h4>
-                        <div class="chart-container">
-                            <canvas id="chart-performance"></canvas>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card col-6">
+                        <h3 class="mb-4"><i class="fas fa-chart-pie text-emerald"></i> توزيع الأصول</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="assetsChart"></canvas>
                         </div>
                     </div>
-                </div>
-
-                <!-- Recent Transactions -->
-                <div class="card">
-                    <h4><i class="fas fa-history text-info"></i> آخر العمليات</h4>
-                    <div class="table-container">
-                        <table id="recent-transactions">
-                            <thead>
-                                <tr>
-                                    <th>التاريخ</th>
-                                    <th>نوع العملية</th>
-                                    <th>الشركة</th>
-                                    <th>الكمية</th>
-                                    <th>السعر</th>
-                                    <th>الإجمالي</th>
-                                    <th>العمولة</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                    
+                    <div class="dashboard-card col-6">
+                        <h3 class="mb-4"><i class="fas fa-chart-bar text-emerald"></i> أداء المحافظ</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
                     </div>
-                </div>
-            </section>
 
-            <!-- View: Trading Request -->
-            <section id="view-trading" class="hidden">
-                <div class="content-tabs">
-                    <div class="content-tab active-tab" onclick="trading.switchTab('buy')">شراء</div>
-                    <div class="content-tab" onclick="trading.switchTab('sell')">بيع</div>
-                    <div class="content-tab" onclick="trading.switchTab('dividend')">أرباح</div>
-                    <div class="content-tab" onclick="trading.switchTab('history')">سجل العمليات</div>
-                </div>
-
-                <!-- Buy Form -->
-                <div id="trading-tab-buy">
-                    <div class="card">
-                        <h4><i class="fas fa-shopping-cart text-emerald"></i> طلب شراء أسهم</h4>
-                        <form id="buy-form" class="form-grid mt-4">
-                            <div class="input-group">
-                                <label>اسم الشركة</label>
-                                <input type="text" id="buy-company" required list="companies-list">
-                                <datalist id="companies-list"></datalist>
-                            </div>
-                            <div class="input-group">
-                                <label>تاريخ الشراء</label>
-                                <input type="date" id="buy-date" required>
-                            </div>
-                            <div class="input-group">
-                                <label>عدد الأسهم</label>
-                                <input type="number" id="buy-shares" step="0.01" required min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>سعر السهم وقت الشراء</label>
-                                <input type="number" id="buy-price" step="0.01" required min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>إجمالي الشراء بدون عمولة</label>
-                                <input type="number" id="buy-total-wo-commission" step="0.01" readonly>
-                            </div>
-                            <div class="input-group">
-                                <label>عمولة الشراء</label>
-                                <input type="number" id="buy-commission" step="0.01" required min="0" value="0">
-                            </div>
-                            <div class="input-group">
-                                <label>إجمالي عملية الشراء</label>
-                                <input type="number" id="buy-total" step="0.01" readonly>
-                            </div>
-                            <div class="input-group">
-                                <label>ملاحظات</label>
-                                <textarea id="buy-notes" rows="2"></textarea>
-                            </div>
-                            <div class="input-group" style="grid-column: span 2;">
-                                <button type="submit" class="btn btn-primary w-full">تسجيل عملية الشراء</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Sell Form -->
-                <div id="trading-tab-sell" class="hidden">
-                    <div class="card">
-                        <h4><i class="fas fa-money-bill-wave text-danger"></i> طلب بيع أسهم</h4>
-                        <form id="sell-form" class="form-grid mt-4">
-                            <div class="input-group">
-                                <label>اسم الشركة</label>
-                                <select id="sell-company" required>
-                                    <option value="">اختر الشركة</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>تاريخ البيع</label>
-                                <input type="date" id="sell-date" required>
-                            </div>
-                            <div class="input-group">
-                                <label>عدد الأسهم</label>
-                                <input type="number" id="sell-shares" step="0.01" required min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>سعر السهم وقت البيع</label>
-                                <input type="number" id="sell-price" step="0.01" required min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>إجمالي البيع قبل عمولة</label>
-                                <input type="number" id="sell-total-wo-commission" step="0.01" readonly>
-                            </div>
-                            <div class="input-group">
-                                <label>عمولة البيع</label>
-                                <input type="number" id="sell-commission" step="0.01" required min="0" value="0">
-                            </div>
-                            <div class="input-group">
-                                <label>إجمالي عملية البيع</label>
-                                <input type="number" id="sell-total" step="0.01" readonly>
-                            </div>
-                            <div class="input-group">
-                                <label>هذا المبلغ أعيد استثماره؟</label>
-                                <select id="sell-reinvest">
-                                    <option value="لا">لا</option>
-                                    <option value="نعم">نعم</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>هل تم سحبه؟</label>
-                                <select id="sell-withdrawn">
-                                    <option value="لا">لا</option>
-                                    <option value="نعم">نعم</option>
-                                </select>
-                            </div>
-                            <div class="input-group" style="grid-column: span 2;">
-                                <button type="submit" class="btn btn-primary w-full">تسجيل عملية البيع</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Dividend Form -->
-                <div id="trading-tab-dividend" class="hidden">
-                    <div class="card">
-                        <h4><i class="fas fa-coins text-warning"></i> توزيعات الأرباح</h4>
-                        <form id="dividend-form" class="form-grid mt-4">
-                            <div class="input-group">
-                                <label>اسم الشركة</label>
-                                <select id="dividend-company" required>
-                                    <option value="">اختر الشركة</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>تاريخ إضافة الأرباح</label>
-                                <input type="date" id="dividend-date" required>
-                            </div>
-                            <div class="input-group">
-                                <label>إجمالي قيمة الأرباح قبل العمولة</label>
-                                <input type="number" id="dividend-total-wo-commission" step="0.01" required min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>عمولة الأرباح</label>
-                                <input type="number" id="dividend-commission" step="0.01" required min="0" value="0">
-                            </div>
-                            <div class="input-group">
-                                <label>إجمالي عملية الأرباح</label>
-                                <input type="number" id="dividend-total" step="0.01" readonly>
-                            </div>
-                            <div class="input-group">
-                                <label>عدد الأسهم الموزعة</label>
-                                <input type="number" id="dividend-shares" step="0.01" min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>هذا المبلغ أعيد استثماره؟</label>
-                                <select id="dividend-reinvest">
-                                    <option value="لا">لا</option>
-                                    <option value="نعم">نعم</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>هل تم سحبه؟</label>
-                                <select id="dividend-withdrawn">
-                                    <option value="لا">لا</option>
-                                    <option value="نعم">نعم</option>
-                                </select>
-                            </div>
-                            <div class="input-group" style="grid-column: span 2;">
-                                <button type="submit" class="btn btn-primary w-full">تسجيل عملية الأرباح</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- History -->
-                <div id="trading-tab-history" class="hidden">
-                    <div class="card">
-                        <div class="flex justify-between items-center mb-4">
-                            <h4><i class="fas fa-history text-info"></i> سجل طلبات التداول</h4>
-                            <div class="flex gap-2">
-                                <input type="text" id="trading-search" placeholder="بحث..." onkeyup="trading.renderTable()" style="padding: 0.4rem; width: 200px;">
-                                <button onclick="trading.clearFilters()" class="btn btn-outline btn-sm">إعادة تعيين</button>
-                            </div>
+                    <div class="dashboard-card col-6">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3><i class="fas fa-list text-emerald"></i> آخر العمليات</h3>
+                            <button class="btn btn-sm btn-outline" onclick="router.navigate('wallet')">عرض الكل</button>
                         </div>
                         <div class="table-container">
-                            <table id="trading-table">
-                                <thead>
-                                    <tr>
-                                        <th>طابع زمني</th>
-                                        <th>نوع العملية</th>
-                                        <th>اسم الشركة</th>
-                                        <th>التاريخ</th>
-                                        <th>الكمية</th>
-                                        <th>السعر</th>
-                                        <th>الإجمالي</th>
-                                        <th>العمولة</th>
-                                        <th>إجراءات</th>
-                                    </tr>
-                                </thead>
+                            <table id="dash-recent-table">
+                                <thead><tr><th>التاريخ</th><th>النوع</th><th>التصنيف</th><th>المبلغ</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card col-6">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3><i class="fas fa-arrow-trend-up text-emerald"></i> أكبر المراكز (أسهم)</h3>
+                            <button class="btn btn-sm btn-outline" onclick="router.navigate('trading')">عرض الكل</button>
+                        </div>
+                        <div class="table-container">
+                            <table id="dash-top-stocks">
+                                <thead><tr><th>السهم</th><th>الكمية</th><th>القيمة</th><th>العائد</th></tr></thead>
                                 <tbody></tbody>
                             </table>
                         </div>
@@ -594,120 +371,146 @@
                 </div>
             </section>
 
-            <!-- View: Stocks Data -->
-            <section id="view-stocks" class="hidden">
-                <div class="card">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3><i class="fas fa-chart-line text-emerald"></i> ملخص بيانات الأسهم</h3>
-                        <button onclick="reports.exportStockData()" class="btn btn-accent">
-                            <i class="fas fa-file-excel"></i> تصدير إلى Excel
-                        </button>
-                    </div>
-                    <div class="table-container">
-                        <table id="stocks-table">
-                            <thead>
-                                <tr>
-                                    <th>السهم</th>
-                                    <th>تاريخ أخر عملية شراء</th>
-                                    <th>إجمالي عدد أسهم الشراء</th>
-                                    <th>متوسط سعر الشراء</th>
-                                    <th>قيمة إجمالي عمليات الشراء</th>
-                                    <th>إجمالي عمولة الشراء</th>
-                                    <th>تاريخ أخر عملية بيع</th>
-                                    <th>الكمية المباعة</th>
-                                    <th>متوسط سعر البيع</th>
-                                    <th>قيمة إجمالي عمليات البيع</th>
-                                    <th>إجمالي عمولة البيع</th>
-                                    <th>إجمالي الأرباح المالية</th>
-                                    <th>إجمالي الأسهم المضافة</th>
-                                    <th>الربح/الخسارة</th>
-                                    <th>النسبة %</th>
-                                    <th>الأسهم المملوكة</th>
-                                    <th>سعر السهم المملوك</th>
-                                    <th>القيمة الحالية</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <!-- View: Wallet -->
+            <!-- VIEW: Wallet -->
             <section id="view-wallet" class="hidden">
                 <div class="content-tabs">
-                    <div class="content-tab active-tab" onclick="wallet.switchTab('overview')">نظرة عامة</div>
-                    <div class="content-tab" onclick="wallet.switchTab('transactions')">العمليات النقدية</div>
-                    <div class="content-tab" onclick="wallet.switchTab('currencies')">تحويل العملات</div>
+                    <div class="content-tab active-tab" onclick="wallet.switchTab('stats')">الإحصائيات</div>
+                    <div class="content-tab" onclick="wallet.switchTab('add')">عملية جديدة</div>
+                    <div class="content-tab" onclick="wallet.switchTab('data')">سجل العمليات</div>
                 </div>
 
-                <!-- Wallet Overview -->
-                <div id="wallet-tab-overview">
+                <div id="wallet-tab-stats">
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button class="btn btn-sm btn-outline active-curr" onclick="wallet.setCurrency('EGP')">EGP</button>
+                        <button class="btn btn-sm btn-outline" onclick="wallet.setCurrency('SAR')">SAR</button>
+                        <button class="btn btn-sm btn-outline" onclick="wallet.setCurrency('USD')">USD</button>
+                    </div>
+                    
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">إجمالي الدخل</p>
+                            <div class="kpi-value text-emerald" id="wallet-income">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">إجمالي المصروفات</p>
+                            <div class="kpi-value text-danger" id="wallet-expense">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <p class="text-light text-sm">الرصيد الحالي</p>
+                            <div class="kpi-value" id="wallet-balance">0</div>
+                        </div>
+                    </div>
+
                     <div class="card">
-                        <h4><i class="fas fa-wallet text-emerald"></i> رصيد المحفظة النقدية</h4>
-                        <div class="kpi-grid mt-4">
-                            <div class="kpi-card">
-                                <p class="text-light text-sm">الرصيد الإجمالي (EGP)</p>
-                                <div class="kpi-value text-emerald" id="wallet-balance-egp">0 ج.م</div>
-                            </div>
-                            <div class="kpc-card">
-                                <p class="text-light text-sm">الرصيد الإجمالي (USD)</p>
-                                <div class="kpi-value" id="wallet-balance-usd">0 $</div>
-                            </div>
-                            <div class="kpi-card">
-                                <p class="text-light text-sm">الرصيد الإجمالي (SAR)</p>
-                                <div class="kpi-value" id="wallet-balance-sar">0 ر.س</div>
-                            </div>
+                        <h3 class="mb-4">توزيع المصروفات حسب الفئة</h3>
+                        <div style="height: 300px;">
+                            <canvas id="expenseChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <!-- Transactions -->
-                <div id="wallet-tab-transactions" class="hidden">
-                    <div class="card">
-                        <h4>إدارة العمليات النقدية</h4>
-                        <form id="wallet-form" class="form-grid mt-4">
-                            <div class="input-group">
-                                <label>نوع العملية</label>
-                                <select id="wallet-type">
-                                    <option value="deposit">إيداع</option>
-                                    <option value="withdrawal">سحب</option>
+                <div id="wallet-tab-add" class="hidden">
+                    <div class="card" style="max-width: 800px; margin: 0 auto;">
+                        <h3 class="mb-4">إضافة عملية جديدة</h3>
+                        <form id="transaction-form">
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>نوع العملية *</label>
+                                    <select id="t-type" onchange="wallet.toggleCategories()" required>
+                                        <option value="expense">مصروف (Expense)</option>
+                                        <option value="income">دخل (Income)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>المبلغ *</label>
+                                    <input type="number" id="t-amount" step="0.01" required>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>العملة *</label>
+                                    <select id="t-currency" required>
+                                        <option value="EGP">EGP (جنيه مصري)</option>
+                                        <option value="SAR">SAR (ريال سعودي)</option>
+                                        <option value="USD">USD (دولار أمريكي)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>التاريخ *</label>
+                                    <input type="date" id="t-date" required>
+                                </div>
+                            </div>
+
+                            <div class="input-group" id="expense-cats-group">
+                                <label>التصنيف *</label>
+                                <select id="t-category-exp">
+                                    <option value="طعام ومشروبات">🍔 طعام ومشروبات</option>
+                                    <option value="مواصلات">🚕 مواصلات</option>
+                                    <option value="تسوق">🛒 تسوق</option>
+                                    <option value="فواتير">🏠 فواتير</option>
+                                    <option value="صحة">💊 صحة</option>
+                                    <option value="تعليم">📚 تعليم</option>
+                                    <option value="ترفيه">🎉 ترفيه</option>
+                                    <option value="اتصالات">📱 اتصالات</option>
+                                    <option value="استثمار">📈 استثمار</option>
+                                    <option value="أخرى">🧾 أخرى</option>
                                 </select>
                             </div>
-                            <div class="input-group">
-                                <label>المبلغ</label>
-                                <input type="number" id="wallet-amount" step="0.01" required min="0">
-                            </div>
-                            <div class="input-group">
-                                <label>العملة</label>
-                                <select id="wallet-currency">
-                                    <option value="EGP">جنيه مصري (EGP)</option>
-                                    <option value="USD">دولار أمريكي (USD)</option>
-                                    <option value="SAR">ريال سعودي (SAR)</option>
+
+                            <div class="input-group hidden" id="income-cats-group">
+                                <label>مصدر الدخل *</label>
+                                <select id="t-category-inc">
+                                    <option value="راتب">💼 راتب</option>
+                                    <option value="مكافأة">🎁 مكافأة</option>
+                                    <option value="عائد استثمار">📈 عائد استثمار</option>
+                                    <option value="أخرى">🧾 أخرى</option>
                                 </select>
                             </div>
+
                             <div class="input-group">
-                                <label>الوصف</label>
-                                <input type="text" id="wallet-description" required>
+                                <label>طريقة الدفع *</label>
+                                <select id="t-method" required>
+                                    <option value="كاش">💵 كاش</option>
+                                    <option value="Instapay">📱 Instapay</option>
+                                    <option value="تحويل بنكي">🏦 تحويل بنكي</option>
+                                    <option value="بطاقة ائتمان">💳 بطاقة ائتمان</option>
+                                    <option value="محفظة إلكترونية">📲 محفظة إلكترونية</option>
+                                </select>
                             </div>
-                            <div class="input-group" style="grid-column: span 2;">
-                                <button type="submit" class="btn btn-primary w-full">تسجيل العملية</button>
+
+                            <div class="input-group">
+                                <label>ملاحظات</label>
+                                <textarea id="t-notes" rows="2"></textarea>
                             </div>
+
+                            <button type="submit" class="btn btn-primary w-full">حفظ العملية</button>
                         </form>
                     </div>
-                    
+                </div>
+
+                <div id="wallet-tab-data" class="hidden">
                     <div class="card">
-                        <h4>سجل العمليات النقدية</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>سجل العمليات</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="wallet-search" placeholder="بحث..." onkeyup="wallet.renderTable()" style="padding: 0.5rem; width: 200px;">
+                                <button class="btn btn-accent btn-sm" onclick="reports.exportWallet()">
+                                    <i class="fas fa-download"></i> Excel
+                                </button>
+                            </div>
+                        </div>
                         <div class="table-container">
-                            <table id="wallet-transactions-table">
+                            <table id="wallet-table">
                                 <thead>
                                     <tr>
                                         <th>التاريخ</th>
                                         <th>النوع</th>
+                                        <th>التصنيف</th>
                                         <th>المبلغ</th>
                                         <th>العملة</th>
-                                        <th>الوصف</th>
-                                        <th>إجراءات</th>
+                                        <th>الطريقة</th>
+                                        <th>إجراء</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -717,1325 +520,546 @@
                 </div>
             </section>
 
-            <!-- View: Reports -->
-            <section id="view-reports" class="hidden">
-                <div class="card">
-                    <div class="text-center" style="padding: 2rem;">
-                        <i class="fas fa-file-excel fa-3x text-emerald mb-4"></i>
-                        <h3>مركز التقارير والتصدير</h3>
-                        <p class="text-light mb-6">قم بتصدير بياناتك لتحليلها خارج التطبيق</p>
-                        
-                        <div class="flex justify-center gap-4 flex-wrap">
-                            <button onclick="reports.exportTradingData()" class="btn btn-primary">
-                                <i class="fas fa-exchange-alt"></i> تصدير طلبات التداول
-                            </button>
-                            <button onclick="reports.exportStockData()" class="btn btn-primary">
-                                <i class="fas fa-chart-line"></i> تصدير بيانات الأسهم
-                            </button>
-                            <button onclick="reports.exportWalletData()" class="btn btn-primary">
-                                <i class="fas fa-wallet"></i> تصدير بيانات المحفظة
-                            </button>
-                            <button onclick="reports.exportFullReport()" class="btn btn-accent">
-                                <i class="fas fa-file-archive"></i> تصدير تقرير كامل
-                            </button>
-                        </div>
-                    </div>
+            <!-- VIEW: Trading -->
+            <section id="view-trading" class="hidden">
+                <div class="content-tabs">
+                    <div class="content-tab active-tab" onclick="trading.switchTab('portfolio')">محفظة الأسهم</div>
+                    <div class="content-tab" onclick="trading.switchTab('add')">عملية جديدة</div>
+                    <div class="content-tab" onclick="trading.switchTab('data')">سجل العمليات</div>
+                    <div class="content-tab" onclick="trading.switchTab('dividends')">توزيعات الأرباح</div>
                 </div>
 
-                <!-- Custom Report Generator -->
-                <div class="card">
-                    <h4><i class="fas fa-cogs text-warning"></i> مولد التقارير المخصصة</h4>
-                    <div class="form-grid mt-4">
-                        <div class="input-group">
-                            <label>من تاريخ</label>
-                            <input type="date" id="report-from">
+                <div id="trading-tab-portfolio">
+                    <div class="card mb-4">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>ملخص محفظة التداول</h3>
+                            <button class="btn btn-accent btn-sm" onclick="reports.exportStocksData()">
+                                <i class="fas fa-download"></i> Excel
+                            </button>
                         </div>
-                        <div class="input-group">
-                            <label>إلى تاريخ</label>
-                            <input type="date" id="report-to">
-                        </div>
-                        <div class="input-group">
-                            <label>نوع التقرير</label>
-                            <select id="report-type">
-                                <option value="trading">طلبات التداول</option>
-                                <option value="performance">أداء الاستثمارات</option>
-                                <option value="portfolio">توزيع المحفظة</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>الصيغة</label>
-                            <select id="report-format">
-                                <option value="excel">Excel</option>
-                                <option value="csv">CSV</option>
-                                <option value="pdf">PDF (صورة)</option>
-                            </select>
-                        </div>
-                        <div class="input-group" style="display: flex; align-items: flex-end;">
-                            <button onclick="reports.generateCustomReport()" class="btn btn-primary w-full">إنشاء التقرير</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- View: Import Data -->
-            <section id="view-import" class="hidden">
-                <div class="card">
-                    <h3><i class="fas fa-file-import text-info"></i> استيراد البيانات من Excel</h3>
-                    <div class="mt-4">
-                        <div class="alert-card" style="background-color: #f0f9ff; border: 1px solid #bae6fd; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;">
-                            <p><i class="fas fa-info-circle text-info"></i> يمكنك استيراد البيانات من ملف Excel الحالي (My Investments ER1991.xlsx)</p>
-                            <p class="text-sm text-light">سيتم استيراد جميع البيانات من ورقة "Trading Request"</p>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label>اختر ملف Excel</label>
-                            <input type="file" id="excel-file" accept=".xlsx,.xls" onchange="importData.handleFileSelect(event)">
-                        </div>
-                        
-                        <div id="import-preview" class="hidden mt-4">
-                            <h4>معاينة البيانات</h4>
-                            <div class="table-container">
-                                <table id="preview-table">
-                                    <thead></thead>
-                                    <tbody></tbody>
-                                </table>
+                        <div class="kpi-grid">
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">رأس المال الأساسي</p>
+                                <div class="kpi-value" id="trading-capital">0</div>
                             </div>
-                            <button onclick="importData.confirmImport()" class="btn btn-accent mt-4">
-                                <i class="fas fa-check"></i> تأكيد الاستيراد
-                            </button>
-                            <button onclick="importData.cancelImport()" class="btn btn-outline mt-4">
-                                <i class="fas fa-times"></i> إلغاء
-                            </button>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">إجمالي الشراء</p>
+                                <div class="kpi-value" id="trading-total-buy">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">إجمالي البيع</p>
+                                <div class="kpi-value" id="trading-total-sell">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">الربح/الخسارة</p>
+                                <div class="kpi-value" id="trading-pl">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="mb-4">بيانات الأسهم التفصيلية</h3>
+                        <div class="table-container">
+                            <table id="stocks-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>السهم</th>
+                                        <th>آخر شراء</th>
+                                        <th>إجمالي الشراء</th>
+                                        <th>متوسط السعر</th>
+                                        <th>إجمالي البيع</th>
+                                        <th>الأرباح</th>
+                                        <th>الرصيد</th>
+                                        <th>القيمة الحالية</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- Manual Data Entry -->
-                <div class="card mt-4">
-                    <h4><i class="fas fa-keyboard"></i> إدخال البيانات يدوياً</h4>
-                    <div class="form-grid mt-4">
-                        <div class="input-group">
-                            <label>اسم الشركة</label>
-                            <input type="text" id="manual-company">
-                        </div>
-                        <div class="input-group">
-                            <label>نوع العملية</label>
-                            <select id="manual-type">
-                                <option value="شراء">شراء</option>
-                                <option value="بيع">بيع</option>
-                                <option value="أرباح">أرباح</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>التاريخ</label>
-                            <input type="date" id="manual-date">
-                        </div>
-                        <div class="input-group">
-                            <label>الكمية</label>
-                            <input type="number" id="manual-quantity" step="0.01">
-                        </div>
-                        <div class="input-group">
-                            <label>السعر</label>
-                            <input type="number" id="manual-price" step="0.01">
-                        </div>
-                        <div class="input-group" style="grid-column: span 2;">
-                            <button onclick="importData.addManualEntry()" class="btn btn-primary w-full">
-                                <i class="fas fa-plus"></i> إضافة يدوياً
+                <div id="trading-tab-add" class="hidden">
+                    <div class="card" style="max-width: 900px; margin: 0 auto;">
+                        <h3 class="mb-4">طلب تداول جديد</h3>
+                        <form id="trading-form">
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>نوع العملية *</label>
+                                    <select id="st-type" required>
+                                        <option value="buy">شراء (Buy)</option>
+                                        <option value="sell">بيع (Sell)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>اسم الشركة *</label>
+                                    <input type="text" id="st-name" list="stock-list" required placeholder="مثال: Apple">
+                                    <datalist id="stock-list"></datalist>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>التاريخ *</label>
+                                    <input type="date" id="st-date" required>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>عدد الأسهم *</label>
+                                    <input type="number" id="st-qty" step="0.01" required oninput="trading.calculateTotals()">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>سعر السهم *</label>
+                                    <input type="number" id="st-price" step="0.01" required oninput="trading.calculateTotals()">
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>العمولة</label>
+                                    <input type="number" id="st-comm" step="0.01" value="0" oninput="trading.calculateTotals()">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>الإجمالي بدون عمولة</label>
+                                    <input type="number" id="st-total-no-comm" step="0.01" readonly style="background: var(--bg-body);">
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>الإجمالي مع العمولة *</label>
+                                    <input type="number" id="st-total" step="0.01" required oninput="trading.calculateReverse()">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>ملاحظات</label>
+                                <textarea id="st-notes" rows="2"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-full">تنفيذ العملية</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="trading-tab-data" class="hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>سجل عمليات التداول</h3>
+                            <button class="btn btn-accent btn-sm" onclick="reports.exportTradingLog()">
+                                <i class="fas fa-download"></i> Excel
                             </button>
+                        </div>
+                        <div class="table-container">
+                            <table id="trading-log-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>النوع</th>
+                                        <th>الشركة</th>
+                                        <th>الكمية</th>
+                                        <th>السعر</th>
+                                        <th>العمولة</th>
+                                        <th>الإجمالي</th>
+                                        <th>إجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="trading-tab-dividends" class="hidden">
+                    <div class="card mb-4">
+                        <h3 class="mb-4">إضافة توزيعات أرباح</h3>
+                        <form id="dividend-form">
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>نوع التوزيع *</label>
+                                    <select id="div-type" onchange="trading.toggleDivInputs()" required>
+                                        <option value="cash">مبلغ نقدي</option>
+                                        <option value="shares">أسهم موزعة</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>اسم الشركة *</label>
+                                    <input type="text" id="div-name" list="stock-list-div" required>
+                                    <datalist id="stock-list-div"></datalist>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>التاريخ</label>
+                                    <input type="date" id="div-date">
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;" id="div-amount-group">
+                                    <label>إجمالي الأرباح *</label>
+                                    <input type="number" id="div-amount" step="0.01">
+                                </div>
+                                <div class="input-group hidden" style="flex: 1; min-width: 200px;" id="div-shares-group">
+                                    <label>عدد الأسهم الموزعة *</label>
+                                    <input type="number" id="div-shares" step="0.01">
+                                </div>
+                            </div>
+
+                            <div class="input-group" id="div-comm-group">
+                                <label>العمولة</label>
+                                <input type="number" id="div-comm" step="0.01" value="0">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-full">تسجيل التوزيعات</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>سجل التوزيعات</h3>
+                        <div class="table-container mt-4">
+                            <table id="dividends-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>الشركة</th>
+                                        <th>النوع</th>
+                                        <th>القيمة/الكمية</th>
+                                        <th>إجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </section>
 
+            <!-- VIEW: Gold -->
+            <section id="view-gold" class="hidden">
+                <div class="content-tabs">
+                    <div class="content-tab active-tab" onclick="gold.switchTab('portfolio')">محفظة الذهب</div>
+                    <div class="content-tab" onclick="gold.switchTab('add')">عملية جديدة</div>
+                    <div class="content-tab" onclick="gold.switchTab('data')">سجل العمليات</div>
+                </div>
+
+                <div id="gold-tab-portfolio">
+                    <div class="card mb-4">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>ملخص محفظة الذهب</h3>
+                            <button class="btn btn-accent btn-sm" onclick="reports.exportGoldData()">
+                                <i class="fas fa-download"></i> Excel
+                            </button>
+                        </div>
+                        <div class="kpi-grid">
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">إجمالي الشراء</p>
+                                <div class="kpi-value" id="gold-total-buy">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">إجمالي البيع</p>
+                                <div class="kpi-value" id="gold-total-sell">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">الربح/الخسارة</p>
+                                <div class="kpi-value" id="gold-pl">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">الجرامات المتبقية</p>
+                                <div class="kpi-value text-emerald" id="gold-remaining-grams">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="mb-4">تفاصيل holdings الذهب</h3>
+                        <div class="table-container">
+                            <table id="gold-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>النوع</th>
+                                        <th>العيار</th>
+                                        <th>الجرامات المتبقية</th>
+                                        <th>متوسط السعر/جرام</th>
+                                        <th>إجمالي التكلفة</th>
+                                        <th>القيمة الحالية</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="gold-tab-add" class="hidden">
+                    <div class="card" style="max-width: 800px; margin: 0 auto;">
+                        <h3 class="mb-4">تداول الذهب</h3>
+                        <form id="gold-form">
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>نوع العملية *</label>
+                                    <select id="gd-type" required>
+                                        <option value="buy">شراء</option>
+                                        <option value="sell">بيع</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>النوع (سبائك/مشغولات/عملات) *</label>
+                                    <input type="text" id="gd-item" required placeholder="مثال: سبائك 24">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>العيار *</label>
+                                    <select id="gd-karat" required>
+                                        <option value="24">24</option>
+                                        <option value="21">21</option>
+                                        <option value="18">18</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>الوزن (جرام) *</label>
+                                    <input type="number" id="gd-grams" step="0.01" required oninput="gold.calculateTotal()">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>سعر الجرام *</label>
+                                    <input type="number" id="gd-price" step="0.01" required oninput="gold.calculateTotal()">
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>المصنعية / العمولة</label>
+                                    <input type="number" id="gd-fees" step="0.01" value="0" oninput="gold.calculateTotal()">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>الإجمالي شامل المصنعية</label>
+                                <input type="number" id="gd-total" step="0.01" readonly style="background: var(--bg-body); font-weight: bold;">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-full">حفظ العملية</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="gold-tab-data" class="hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>سجل عمليات الذهب</h3>
+                            <button class="btn btn-accent btn-sm" onclick="reports.exportGoldLog()">
+                                <i class="fas fa-download"></i> Excel
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table id="gold-log-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>النوع</th>
+                                        <th>العنصر</th>
+                                        <th>العيار</th>
+                                        <th>الجرامات</th>
+                                        <th>السعر</th>
+                                        <th>المصنعية</th>
+                                        <th>الإجمالي</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: Portfolio -->
+            <section id="view-portfolio" class="hidden">
+                <div class="content-tabs">
+                    <div class="content-tab active-tab" onclick="portfolio.switchTab('summary')">ملخص المحافظ</div>
+                    <div class="content-tab" onclick="portfolio.switchTab('add')">إيداع/سحب</div>
+                    <div class="content-tab" onclick="portfolio.switchTab('data')">سجل الحركات</div>
+                </div>
+
+                <div id="portfolio-tab-summary">
+                    <div class="card mb-4">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>بيانات المحافظ الاستثمارية</h3>
+                            <button class="btn btn-accent btn-sm" onclick="reports.exportPortfolioData()">
+                                <i class="fas fa-download"></i> Excel
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table id="portfolio-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>المحفظة</th>
+                                        <th>إجمالي الإيداع</th>
+                                        <th>إجمالي السحب</th>
+                                        <th>العمولات</th>
+                                        <th>الرصيد الصافي</th>
+                                        <th>آخر إيداع</th>
+                                        <th>آخر سحب</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="mb-4">ملخص الاستثمارات الكلي</h3>
+                        <div class="kpi-grid">
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">رأس المال الأساسي</p>
+                                <div class="kpi-value" id="inv-capital">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">إجمالي الشراء</p>
+                                <div class="kpi-value" id="inv-total-buy">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">إجمالي البيع</p>
+                                <div class="kpi-value" id="inv-total-sell">0</div>
+                            </div>
+                            <div class="kpi-card">
+                                <p class="text-light text-sm">الربح/الخسارة الكلي</p>
+                                <div class="kpi-value" id="inv-total-pl">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="portfolio-tab-add" class="hidden">
+                    <div class="card" style="max-width: 600px; margin: 0 auto;">
+                        <h3 class="mb-4">إيداع / سحب من محفظة</h3>
+                        <form id="portfolio-form">
+                            <div class="input-group">
+                                <label>اسم المحفظة *</label>
+                                <select id="pf-name" required>
+                                    <option value="محفظة الأسهم">محفظة الأسهم</option>
+                                    <option value="محفظة الذهب">محفظة الذهب</option>
+                                    <option value="محفظة الحسابات البنكية">محفظة الحسابات البنكية</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>نوع العملية *</label>
+                                <select id="pf-type" required>
+                                    <option value="deposit">إيداع (+)</option>
+                                    <option value="withdraw">سحب (-)</option>
+                                </select>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>المبلغ *</label>
+                                    <input type="number" id="pf-amount" step="0.01" required>
+                                </div>
+                                <div class="input-group" style="flex: 1; min-width: 200px;">
+                                    <label>التاريخ *</label>
+                                    <input type="date" id="pf-date" required>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>طريقة التحويل</label>
+                                <select id="pf-method">
+                                    <option value="تحويل بنكي">تحويل بنكي</option>
+                                    <option value="انستاباي">انستاباي</option>
+                                    <option value="فودافون كاش">فودافون كاش</option>
+                                    <option value="نقدي">نقدي</option>
+                                </select>
+                            </div>
+
+                            <div class="input-group">
+                                <label>العمولة</label>
+                                <input type="number" id="pf-comm" step="0.01" value="0">
+                            </div>
+
+                            <div class="input-group">
+                                <label>ملاحظات</label>
+                                <textarea id="pf-notes" rows="2"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-full">تنفيذ العملية</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="portfolio-tab-data" class="hidden">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>سجل حركات المحافظ</h3>
+                            <button class="btn btn-accent btn-sm" onclick="reports.exportPortfolioLog()">
+                                <i class="fas fa-download"></i> Excel
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table id="portfolio-log-table">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ</th>
+                                        <th>المحفظة</th>
+                                        <th>النوع</th>
+                                        <th>المبلغ</th>
+                                        <th>الطريقة</th>
+                                        <th>العمولة</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: Reports -->
+            <section id="view-reports" class="hidden">
+                <div class="dashboard-grid">
+                    <div class="dashboard-card col-6" style="text-align: center; padding: 3rem;">
+                        <i class="fas fa-file-excel fa-3x text-emerald mb-4"></i>
+                        <h3>تصدير بيانات المحفظة</h3>
+                        <p class="text-light mb-4">تصدير جميع عمليات الدخل والمصروفات</p>
+                        <button onclick="reports.exportWallet()" class="btn btn-primary w-full">
+                            <i class="fas fa-download"></i> تحميل Excel
+                        </button>
+                    </div>
+
+                    <div class="dashboard-card col-6" style="text-align: center; padding: 3rem;">
+                        <i class="fas fa-chart-line fa-3x text-emerald mb-4"></i>
+                        <h3>تصدير بيانات الاستثمارات</h3>
+                        <p class="text-light mb-4">تصدير الأسهم والذهب والمحافظ</p>
+                        <button onclick="reports.exportAllInvestments()" class="btn btn-primary w-full">
+                            <i class="fas fa-download"></i> تحميل Excel
+                        </button>
+                    </div>
+
+                    <div class="dashboard-card col-6" style="text-align: center; padding: 3rem;">
+                        <i class="fas fa-camera fa-3x text-emerald mb-4"></i>
+                        <h3>حفظ لوحة التحكم</h3>
+                        <p class="text-light mb-4">التقاط صورة للوحة التحكم كصورة PNG</p>
+                        <button onclick="reports.captureDashboard()" class="btn btn-accent w-full">
+                            <i class="fas fa-camera"></i> حفظ كصورة
+                        </button>
+                    </div>
+
+                    <div class="dashboard-card col-6" style="text-align: center; padding: 3rem;">
+                        <i class="fas fa-database fa-3x text-emerald mb-4"></i>
+                        <h3>نسخ احتياطي كامل</h3>
+                        <p class="text-light mb-4">تصدير جميع البيانات كملف JSON للاستيراد لاحقاً</p>
+                        <button onclick="reports.exportBackup()" class="btn btn-primary w-full">
+                            <i class="fas fa-download"></i> نسخ احتياطي
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div class="app-footer">
+                <p>© 2024 ER1991 Wallet. جميع الحقوق محفوظة.</p>
+                <p class="text-sm mt-2">تم التطوير بواسطة <span class="text-emerald">ER1991</span> | نظام إدارة الاستثمارات الشامل</p>
+            </div>
         </main>
     </div>
 
-    <!-- Toast Container -->
     <div id="toast-container"></div>
-
-    <!-- JavaScript Code -->
-    <script>
-        // ==================== STATE MANAGEMENT ====================
-        const store = {
-            state: {
-                user: null,
-                theme: localStorage.getItem('theme') || 'light',
-                tradingRequests: [],
-                walletTransactions: [],
-                exchangeRates: { EGP: 1, USD: 49, SAR: 13 }, // أسعار الصرف تقريبية
-                lastSync: null
-            },
-            
-            load() {
-                const saved = localStorage.getItem('ER1991_INVESTMENT_DATA');
-                if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
-                        this.state = { ...this.state, ...parsed };
-                    } catch (e) {
-                        console.error('Error loading saved data:', e);
-                    }
-                }
-                
-                // Set theme
-                if (this.state.theme === 'dark') {
-                    document.body.classList.add('dark-mode');
-                }
-                
-                // Load initial data from Excel if empty
-                if (this.state.tradingRequests.length === 0) {
-                    this.loadInitialData();
-                }
-            },
-            
-            loadInitialData() {
-                // Sample data matching Excel structure
-                const sampleData = [
-                    {
-                        timestamp: "45826.41571120371",
-                        email: "ehabrefaatwork@gmail.com",
-                        type: "بيع",
-                        company: "AZG",
-                        date: "2024-02-22",
-                        shares: 110,
-                        price: 15.1,
-                        totalBeforeCommission: 1661.34,
-                        commission: 79.02,
-                        total: 1582.32,
-                        reinvested: "لا",
-                        withdrawn: "لا"
-                    },
-                    {
-                        timestamp: "45826.48248702547",
-                        email: "ehabrefaatwork@gmail.com",
-                        type: "شراء",
-                        company: "SKPC",
-                        date: "2024-06-25",
-                        shares: 12,
-                        price: 27.6,
-                        totalBeforeCommission: 331,
-                        commission: 3.41,
-                        total: 334.61,
-                        notes: ""
-                    }
-                ];
-                
-                this.state.tradingRequests = sampleData;
-                this.save();
-            },
-            
-            save() {
-                this.state.lastSync = new Date().toISOString();
-                localStorage.setItem('ER1991_INVESTMENT_DATA', JSON.stringify(this.state));
-            },
-            
-            backup() {
-                const backupData = {
-                    ...this.state,
-                    backupDate: new Date().toISOString()
-                };
-                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `ER1991_Backup_${new Date().toISOString().split('T')[0]}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-            },
-            
-            restore(backupData) {
-                this.state = { ...this.state, ...backupData };
-                this.save();
-                location.reload();
-            }
-        };
-
-        // ==================== HELPER FUNCTIONS ====================
-        const $ = (id) => document.getElementById(id);
-        const formatCurrency = (amount, currency = 'EGP') => {
-            return new Intl.NumberFormat('ar-EG', {
-                style: 'currency',
-                currency: currency
-            }).format(amount);
-        };
-        
-        const showToast = (message, type = 'success') => {
-            const container = $('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            const icon = type === 'success' ? 'fa-check-circle' : 
-                         type === 'error' ? 'fa-exclamation-circle' : 
-                         'fa-info-circle';
-            const color = type === 'success' ? 'text-emerald' : 
-                         type === 'error' ? 'text-danger' : 
-                         'text-info';
-            
-            toast.innerHTML = `
-                <i class="fas ${icon} ${color}"></i>
-                <span>${message}</span>
-            `;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        };
-
-        // ==================== CALCULATION ENGINE ====================
-        const calculations = {
-            // Calculate stock summary based on Excel formulas
-            calculateStockSummary() {
-                const transactions = store.state.tradingRequests;
-                const stocks = {};
-                
-                // Group by company
-                transactions.forEach(tx => {
-                    const company = tx.company;
-                    if (!company) return;
-                    
-                    if (!stocks[company]) {
-                        stocks[company] = {
-                            totalBoughtShares: 0,
-                            totalBoughtValue: 0,
-                            totalSoldShares: 0,
-                            totalSoldValue: 0,
-                            totalDividends: 0,
-                            totalDividendShares: 0,
-                            totalBuyCommission: 0,
-                            totalSellCommission: 0,
-                            lastBuyDate: null,
-                            lastSellDate: null,
-                            transactions: []
-                        };
-                    }
-                    
-                    stocks[company].transactions.push(tx);
-                    
-                    if (tx.type === 'شراء') {
-                        stocks[company].totalBoughtShares += parseFloat(tx.shares) || 0;
-                        stocks[company].totalBoughtValue += parseFloat(tx.total) || 0;
-                        stocks[company].totalBuyCommission += parseFloat(tx.commission) || 0;
-                        if (tx.date && (!stocks[company].lastBuyDate || tx.date > stocks[company].lastBuyDate)) {
-                            stocks[company].lastBuyDate = tx.date;
-                        }
-                    } else if (tx.type === 'بيع') {
-                        stocks[company].totalSoldShares += parseFloat(tx.shares) || 0;
-                        stocks[company].totalSoldValue += parseFloat(tx.total) || 0;
-                        stocks[company].totalSellCommission += parseFloat(tx.commission) || 0;
-                        if (tx.date && (!stocks[company].lastSellDate || tx.date > stocks[company].lastSellDate)) {
-                            stocks[company].lastSellDate = tx.date;
-                        }
-                    } else if (tx.type === 'أرباح') {
-                        stocks[company].totalDividends += parseFloat(tx.total) || 0;
-                        stocks[company].totalDividendShares += parseFloat(tx.shares) || 0;
-                    }
-                });
-                
-                // Calculate derived values
-                const summary = [];
-                for (const [company, data] of Object.entries(stocks)) {
-                    const avgBuyPrice = data.totalBoughtShares > 0 ? 
-                        (data.totalBoughtValue + data.totalBuyCommission) / data.totalBoughtShares : 0;
-                    
-                    const avgSellPrice = data.totalSoldShares > 0 ? 
-                        (data.totalSoldValue - data.totalSellCommission) / data.totalSoldShares : 0;
-                    
-                    const currentShares = data.totalBoughtShares - data.totalSoldShares + data.totalDividendShares;
-                    const currentPrice = currentShares > 0 ? 
-                        ((data.totalBoughtValue + data.totalBuyCommission) - 
-                         (data.totalSoldValue - data.totalSellCommission) + data.totalDividends) / currentShares : 0;
-                    
-                    const totalCost = data.totalBoughtValue + data.totalBuyCommission + data.totalDividends;
-                    const totalRevenue = data.totalSoldValue - data.totalSellCommission;
-                    const profitLoss = totalRevenue - totalCost;
-                    const profitPercentage = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
-                    
-                    summary.push({
-                        company,
-                        lastBuyDate: data.lastBuyDate,
-                        totalBoughtShares: data.totalBoughtShares,
-                        avgBuyPrice,
-                        totalBoughtValue: data.totalBoughtValue + data.totalBuyCommission,
-                        totalBuyCommission: data.totalBuyCommission,
-                        lastSellDate: data.lastSellDate,
-                        totalSoldShares: data.totalSoldShares,
-                        avgSellPrice,
-                        totalSoldValue: data.totalSoldValue - data.totalSellCommission,
-                        totalSellCommission: data.totalSellCommission,
-                        totalDividends: data.totalDividends,
-                        totalDividendShares: data.totalDividendShares,
-                        profitLoss,
-                        profitPercentage,
-                        currentShares,
-                        currentPrice,
-                        currentValue: currentShares * currentPrice
-                    });
-                }
-                
-                return summary;
-            },
-            
-            calculatePortfolioValue() {
-                const summary = this.calculateStockSummary();
-                return summary.reduce((total, stock) => total + stock.currentValue, 0);
-            },
-            
-            calculateTotalProfitLoss() {
-                const summary = this.calculateStockSummary();
-                return summary.reduce((total, stock) => total + stock.profitLoss, 0);
-            },
-            
-            calculateWalletBalance(currency = 'EGP') {
-                const transactions = store.state.walletTransactions;
-                return transactions
-                    .filter(tx => tx.currency === currency)
-                    .reduce((balance, tx) => {
-                        return tx.type === 'deposit' ? balance + tx.amount : balance - tx.amount;
-                    }, 0);
-            }
-        };
-
-        // ==================== MODULES ====================
-        const trading = {
-            currentTab: 'buy',
-            
-            init() {
-                $('buy-date').valueAsDate = new Date();
-                $('sell-date').valueAsDate = new Date();
-                $('dividend-date').valueAsDate = new Date();
-                
-                // Setup form calculations
-                $('buy-shares').addEventListener('input', this.calculateBuyTotals);
-                $('buy-price').addEventListener('input', this.calculateBuyTotals);
-                $('buy-commission').addEventListener('input', this.calculateBuyTotals);
-                
-                $('sell-shares').addEventListener('input', this.calculateSellTotals);
-                $('sell-price').addEventListener('input', this.calculateSellTotals);
-                $('sell-commission').addEventListener('input', this.calculateSellTotals);
-                
-                $('dividend-total-wo-commission').addEventListener('input', this.calculateDividendTotals);
-                $('dividend-commission').addEventListener('input', this.calculateDividendTotals);
-                
-                // Setup form submissions
-                $('buy-form').addEventListener('submit', this.submitBuy);
-                $('sell-form').addEventListener('submit', this.submitSell);
-                $('dividend-form').addEventListener('submit', this.submitDividend);
-                
-                this.updateCompanyLists();
-                this.renderTable();
-            },
-            
-            switchTab(tab) {
-                this.currentTab = tab;
-                ['buy', 'sell', 'dividend', 'history'].forEach(t => {
-                    $(`trading-tab-${t}`).classList.add('hidden');
-                    $(`trading-tab-${t}`).classList.remove('active-tab');
-                });
-                $(`trading-tab-${tab}`).classList.remove('hidden');
-                
-                // Update active tab in UI
-                document.querySelectorAll('.content-tab').forEach(el => {
-                    el.classList.remove('active-tab');
-                    if (el.onclick && el.onclick.toString().includes(tab)) {
-                        el.classList.add('active-tab');
-                    }
-                });
-                
-                if (tab === 'sell' || tab === 'dividend') {
-                    this.updateCompanySelect();
-                }
-            },
-            
-            calculateBuyTotals() {
-                const shares = parseFloat($('buy-shares').value) || 0;
-                const price = parseFloat($('buy-price').value) || 0;
-                const commission = parseFloat($('buy-commission').value) || 0;
-                
-                const totalBeforeCommission = shares * price;
-                const total = totalBeforeCommission + commission;
-                
-                $('buy-total-wo-commission').value = totalBeforeCommission.toFixed(2);
-                $('buy-total').value = total.toFixed(2);
-            },
-            
-            calculateSellTotals() {
-                const shares = parseFloat($('sell-shares').value) || 0;
-                const price = parseFloat($('sell-price').value) || 0;
-                const commission = parseFloat($('sell-commission').value) || 0;
-                
-                const totalBeforeCommission = shares * price;
-                const total = totalBeforeCommission - commission;
-                
-                $('sell-total-wo-commission').value = totalBeforeCommission.toFixed(2);
-                $('sell-total').value = total.toFixed(2);
-            },
-            
-            calculateDividendTotals() {
-                const totalBeforeCommission = parseFloat($('dividend-total-wo-commission').value) || 0;
-                const commission = parseFloat($('dividend-commission').value) || 0;
-                
-                const total = totalBeforeCommission - commission;
-                $('dividend-total').value = total.toFixed(2);
-            },
-            
-            updateCompanyLists() {
-                const companies = new Set();
-                store.state.tradingRequests.forEach(tx => {
-                    if (tx.company) companies.add(tx.company);
-                });
-                
-                const datalist = $('companies-list');
-                datalist.innerHTML = '';
-                companies.forEach(company => {
-                    const option = document.createElement('option');
-                    option.value = company;
-                    datalist.appendChild(option);
-                });
-            },
-            
-            updateCompanySelect() {
-                const companies = new Set();
-                store.state.tradingRequests.forEach(tx => {
-                    if (tx.company) companies.add(tx.company);
-                });
-                
-                const buySelect = $('sell-company');
-                const dividendSelect = $('dividend-company');
-                
-                // Clear and add options
-                [buySelect, dividendSelect].forEach(select => {
-                    select.innerHTML = '<option value="">اختر الشركة</option>';
-                    companies.forEach(company => {
-                        const option = document.createElement('option');
-                        option.value = company;
-                        option.textContent = company;
-                        select.appendChild(option);
-                    });
-                });
-            },
-            
-            submitBuy(e) {
-                e.preventDefault();
-                
-                const transaction = {
-                    timestamp: new Date().getTime().toString(),
-                    email: store.state.user.email,
-                    type: "شراء",
-                    company: $('buy-company').value,
-                    date: $('buy-date').value,
-                    shares: parseFloat($('buy-shares').value),
-                    price: parseFloat($('buy-price').value),
-                    totalBeforeCommission: parseFloat($('buy-total-wo-commission').value),
-                    commission: parseFloat($('buy-commission').value),
-                    total: parseFloat($('buy-total').value),
-                    notes: $('buy-notes').value
-                };
-                
-                store.state.tradingRequests.push(transaction);
-                store.save();
-                showToast('تم تسجيل عملية الشراء بنجاح');
-                $('buy-form').reset();
-                $('buy-date').valueAsDate = new Date();
-                
-                // Update company lists
-                trading.updateCompanyLists();
-                trading.updateCompanySelect();
-                trading.renderTable();
-                dashboard.updateDashboard();
-            },
-            
-            submitSell(e) {
-                e.preventDefault();
-                
-                const transaction = {
-                    timestamp: new Date().getTime().toString(),
-                    email: store.state.user.email,
-                    type: "بيع",
-                    company: $('sell-company').value,
-                    date: $('sell-date').value,
-                    shares: parseFloat($('sell-shares').value),
-                    price: parseFloat($('sell-price').value),
-                    totalBeforeCommission: parseFloat($('sell-total-wo-commission').value),
-                    commission: parseFloat($('sell-commission').value),
-                    total: parseFloat($('sell-total').value),
-                    reinvested: $('sell-reinvest').value,
-                    withdrawn: $('sell-withdrawn').value
-                };
-                
-                store.state.tradingRequests.push(transaction);
-                store.save();
-                showToast('تم تسجيل عملية البيع بنجاح');
-                $('sell-form').reset();
-                $('sell-date').valueAsDate = new Date();
-                
-                trading.renderTable();
-                dashboard.updateDashboard();
-            },
-            
-            submitDividend(e) {
-                e.preventDefault();
-                
-                const transaction = {
-                    timestamp: new Date().getTime().toString(),
-                    email: store.state.user.email,
-                    type: "أرباح",
-                    company: $('dividend-company').value,
-                    date: $('dividend-date').value,
-                    shares: parseFloat($('dividend-shares').value) || 0,
-                    totalBeforeCommission: parseFloat($('dividend-total-wo-commission').value),
-                    commission: parseFloat($('dividend-commission').value),
-                    total: parseFloat($('dividend-total').value),
-                    reinvested: $('dividend-reinvest').value,
-                    withdrawn: $('dividend-withdrawn').value
-                };
-                
-                store.state.tradingRequests.push(transaction);
-                store.save();
-                showToast('تم تسجيل عملية الأرباح بنجاح');
-                $('dividend-form').reset();
-                $('dividend-date').valueAsDate = new Date();
-                
-                trading.renderTable();
-                dashboard.updateDashboard();
-            },
-            
-            renderTable() {
-                const tbody = $('trading-table').querySelector('tbody');
-                tbody.innerHTML = '';
-                
-                const searchTerm = $('trading-search').value.toLowerCase();
-                let transactions = store.state.tradingRequests;
-                
-                if (searchTerm) {
-                    transactions = transactions.filter(tx => 
-                        (tx.company && tx.company.toLowerCase().includes(searchTerm)) ||
-                        (tx.type && tx.type.toLowerCase().includes(searchTerm))
-                    );
-                }
-                
-                // Sort by timestamp (newest first)
-                transactions.sort((a, b) => b.timestamp - a.timestamp);
-                
-                transactions.forEach((tx, index) => {
-                    const row = document.createElement('tr');
-                    
-                    const date = new Date(tx.timestamp * 1000 || Date.now());
-                    const formattedDate = date.toLocaleDateString('ar-EG');
-                    
-                    row.innerHTML = `
-                        <td>${formattedDate}</td>
-                        <td>
-                            <span class="${tx.type === 'شراء' ? 'positive' : tx.type === 'بيع' ? 'negative' : 'text-warning'}">
-                                ${tx.type}
-                            </span>
-                        </td>
-                        <td>${tx.company || '-'}</td>
-                        <td>${tx.date || '-'}</td>
-                        <td>${tx.shares ? tx.shares.toFixed(2) : '-'}</td>
-                        <td>${tx.price ? tx.price.toFixed(2) : '-'}</td>
-                        <td>${tx.total ? tx.total.toFixed(2) : '-'}</td>
-                        <td>${tx.commission ? tx.commission.toFixed(2) : '0.00'}</td>
-                        <td class="action-btns">
-                            <button onclick="trading.editTransaction(${index})" class="btn btn-sm btn-outline">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="trading.deleteTransaction(${index})" class="btn btn-sm btn-outline text-danger">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            },
-            
-            clearFilters() {
-                $('trading-search').value = '';
-                this.renderTable();
-            },
-            
-            editTransaction(index) {
-                const tx = store.state.tradingRequests[index];
-                // Switch to appropriate tab and fill form
-                if (tx.type === 'شراء') {
-                    this.switchTab('buy');
-                    // Fill buy form (implementation depends on requirements)
-                } else if (tx.type === 'بيع') {
-                    this.switchTab('sell');
-                    // Fill sell form
-                } else if (tx.type === 'أرباح') {
-                    this.switchTab('dividend');
-                    // Fill dividend form
-                }
-            },
-            
-            deleteTransaction(index) {
-                if (confirm('هل أنت متأكد من حذف هذه العملية؟')) {
-                    store.state.tradingRequests.splice(index, 1);
-                    store.save();
-                    showToast('تم حذف العملية بنجاح', 'success');
-                    this.renderTable();
-                    dashboard.updateDashboard();
-                }
-            }
-        };
-
-        const stocks = {
-            renderTable() {
-                const tbody = $('stocks-table').querySelector('tbody');
-                tbody.innerHTML = '';
-                
-                const summary = calculations.calculateStockSummary();
-                
-                summary.forEach(stock => {
-                    const row = document.createElement('tr');
-                    
-                    row.innerHTML = `
-                        <td><strong>${stock.company}</strong></td>
-                        <td>${stock.lastBuyDate || '-'}</td>
-                        <td>${stock.totalBoughtShares.toFixed(2)}</td>
-                        <td>${stock.avgBuyPrice.toFixed(2)}</td>
-                        <td>${stock.totalBoughtValue.toFixed(2)}</td>
-                        <td>${stock.totalBuyCommission.toFixed(2)}</td>
-                        <td>${stock.lastSellDate || '-'}</td>
-                        <td>${stock.totalSoldShares.toFixed(2)}</td>
-                        <td>${stock.avgSellPrice.toFixed(2)}</td>
-                        <td>${stock.totalSoldValue.toFixed(2)}</td>
-                        <td>${stock.totalSellCommission.toFixed(2)}</td>
-                        <td>${stock.totalDividends.toFixed(2)}</td>
-                        <td>${stock.totalDividendShares.toFixed(2)}</td>
-                        <td class="${stock.profitLoss >= 0 ? 'positive' : 'negative'}">
-                            ${stock.profitLoss.toFixed(2)}
-                        </td>
-                        <td class="${stock.profitPercentage >= 0 ? 'positive' : 'negative'}">
-                            ${stock.profitPercentage.toFixed(2)}%
-                        </td>
-                        <td>${stock.currentShares.toFixed(2)}</td>
-                        <td>${stock.currentPrice.toFixed(2)}</td>
-                        <td class="${stock.currentValue >= 0 ? 'positive' : 'negative'}">
-                            ${stock.currentValue.toFixed(2)}
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            }
-        };
-
-        const wallet = {
-            currentTab: 'overview',
-            
-            init() {
-                $('wallet-form').addEventListener('submit', this.submitTransaction);
-                this.updateWalletDisplay();
-                this.renderWalletTransactions();
-            },
-            
-            switchTab(tab) {
-                this.currentTab = tab;
-                ['overview', 'transactions', 'currencies'].forEach(t => {
-                    $(`wallet-tab-${t}`).classList.add('hidden');
-                });
-                $(`wallet-tab-${tab}`).classList.remove('hidden');
-                
-                // Update active tab
-                document.querySelectorAll('.content-tab').forEach(el => {
-                    el.classList.remove('active-tab');
-                    if (el.onclick && el.onclick.toString().includes(tab)) {
-                        el.classList.add('active-tab');
-                    }
-                });
-                
-                if (tab === 'overview') {
-                    this.updateWalletDisplay();
-                }
-            },
-            
-            submitTransaction(e) {
-                e.preventDefault();
-                
-                const transaction = {
-                    id: Date.now(),
-                    date: new Date().toISOString().split('T')[0],
-                    type: $('wallet-type').value,
-                    amount: parseFloat($('wallet-amount').value),
-                    currency: $('wallet-currency').value,
-                    description: $('wallet-description').value
-                };
-                
-                store.state.walletTransactions.push(transaction);
-                store.save();
-                showToast('تم تسجيل العملية النقدية بنجاح');
-                
-                $('wallet-form').reset();
-                this.updateWalletDisplay();
-                this.renderWalletTransactions();
-            },
-            
-            updateWalletDisplay() {
-                const balanceEGP = calculations.calculateWalletBalance('EGP');
-                const balanceUSD = calculations.calculateWalletBalance('USD');
-                const balanceSAR = calculations.calculateWalletBalance('SAR');
-                
-                $('wallet-balance-egp').textContent = `${balanceEGP.toFixed(2)} ج.م`;
-                $('wallet-balance-usd').textContent = `${balanceUSD.toFixed(2)} $`;
-                $('wallet-balance-sar').textContent = `${balanceSAR.toFixed(2)} ر.س`;
-            },
-            
-            renderWalletTransactions() {
-                const tbody = $('wallet-transactions-table').querySelector('tbody');
-                tbody.innerHTML = '';
-                
-                const transactions = store.state.walletTransactions;
-                transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-                
-                transactions.forEach((tx, index) => {
-                    const row = document.createElement('tr');
-                    
-                    row.innerHTML = `
-                        <td>${tx.date}</td>
-                        <td>
-                            <span class="${tx.type === 'deposit' ? 'positive' : 'negative'}">
-                                ${tx.type === 'deposit' ? 'إيداع' : 'سحب'}
-                            </span>
-                        </td>
-                        <td>${tx.amount.toFixed(2)}</td>
-                        <td>${tx.currency}</td>
-                        <td>${tx.description}</td>
-                        <td class="action-btns">
-                            <button onclick="wallet.deleteTransaction(${index})" class="btn btn-sm btn-outline text-danger">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            },
-            
-            deleteTransaction(index) {
-                if (confirm('هل أنت متأكد من حذف هذه العملية؟')) {
-                    store.state.walletTransactions.splice(index, 1);
-                    store.save();
-                    showToast('تم حذف العملية بنجاح', 'success');
-                    this.updateWalletDisplay();
-                    this.renderWalletTransactions();
-                }
-            }
-        };
-
-        const dashboard = {
-            charts: {},
-            
-            init() {
-                this.updateDashboard();
-                this.initCharts();
-            },
-            
-            updateDashboard() {
-                const portfolioValue = calculations.calculatePortfolioValue();
-                const totalPL = calculations.calculateTotalProfitLoss();
-                const summary = calculations.calculateStockSummary();
-                
-                $('total-investment').textContent = `${portfolioValue.toFixed(2)} ج.م`;
-                $('total-pl').textContent = `${totalPL.toFixed(2)} ج.م`;
-                $('active-trades').textContent = summary.length;
-                
-                const avgReturn = summary.length > 0 
-                    ? summary.reduce((sum, s) => sum + s.profitPercentage, 0) / summary.length 
-                    : 0;
-                $('avg-return').textContent = `${avgReturn.toFixed(2)}%`;
-                
-                // Update recent transactions
-                this.updateRecentTransactions();
-                
-                // Update charts
-                this.updateCharts();
-            },
-            
-            updateRecentTransactions() {
-                const tbody = $('recent-transactions').querySelector('tbody');
-                tbody.innerHTML = '';
-                
-                const recentTransactions = store.state.tradingRequests
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .slice(0, 10);
-                
-                recentTransactions.forEach(tx => {
-                    const row = document.createElement('tr');
-                    
-                    row.innerHTML = `
-                        <td>${tx.date || '-'}</td>
-                        <td>
-                            <span class="${tx.type === 'شراء' ? 'positive' : tx.type === 'بيع' ? 'negative' : 'text-warning'}">
-                                ${tx.type}
-                            </span>
-                        </td>
-                        <td>${tx.company || '-'}</td>
-                        <td>${tx.shares ? tx.shares.toFixed(2) : '-'}</td>
-                        <td>${tx.price ? tx.price.toFixed(2) : '-'}</td>
-                        <td>${tx.total ? tx.total.toFixed(2) : '-'}</td>
-                        <td>${tx.commission ? tx.commission.toFixed(2) : '0.00'}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            },
-            
-            initCharts() {
-                const ctx1 = $('chart-distribution').getContext('2d');
-                const ctx2 = $('chart-performance').getContext('2d');
-                
-                this.charts.distribution = new Chart(ctx1, {
-                    type: 'pie',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            data: [],
-                            backgroundColor: [
-                                '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-                                '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#64748b'
-                            ]
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'left',
-                                rtl: true
-                            }
-                        }
-                    }
-                });
-                
-                this.charts.performance = new Chart(ctx2, {
-                    type: 'bar',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'الأرباح/الخسائر',
-                            data: [],
-                            backgroundColor: [],
-                            borderColor: [],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-            },
-            
-            updateCharts() {
-                const summary = calculations.calculateStockSummary();
-                
-                // Update distribution chart
-                this.charts.distribution.data.labels = summary.map(s => s.company);
-                this.charts.distribution.data.datasets[0].data = summary.map(s => s.currentValue);
-                this.charts.distribution.update();
-                
-                // Update performance chart
-                this.charts.performance.data.labels = summary.map(s => s.company);
-                this.charts.performance.data.datasets[0].data = summary.map(s => s.profitLoss);
-                this.charts.performance.data.datasets[0].backgroundColor = summary.map(s => 
-                    s.profitLoss >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'
-                );
-                this.charts.performance.data.datasets[0].borderColor = summary.map(s => 
-                    s.profitLoss >= 0 ? '#10b981' : '#ef4444'
-                );
-                this.charts.performance.update();
-            }
-        };
-
-        const reports = {
-            exportTradingData() {
-                const ws = XLSX.utils.json_to_sheet(store.state.tradingRequests);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "طلبات التداول");
-                XLSX.writeFile(wb, "ER1991_Trading_Requests.xlsx");
-                showToast('تم تصدير طلبات التداول بنجاح');
-            },
-            
-            exportStockData() {
-                const summary = calculations.calculateStockSummary();
-                const ws = XLSX.utils.json_to_sheet(summary);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "بيانات الأسهم");
-                XLSX.writeFile(wb, "ER1991_Stocks_Data.xlsx");
-                showToast('تم تصدير بيانات الأسهم بنجاح');
-            },
-            
-            exportWalletData() {
-                const ws = XLSX.utils.json_to_sheet(store.state.walletTransactions);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "المحفظة النقدية");
-                XLSX.writeFile(wb, "ER1991_Wallet_Data.xlsx");
-                showToast('تم تصدير بيانات المحفظة بنجاح');
-            },
-            
-            exportFullReport() {
-                const wb = XLSX.utils.book_new();
-                
-                // Trading Requests
-                const ws1 = XLSX.utils.json_to_sheet(store.state.tradingRequests);
-                XLSX.utils.book_append_sheet(wb, ws1, "طلبات التداول");
-                
-                // Stocks Data
-                const summary = calculations.calculateStockSummary();
-                const ws2 = XLSX.utils.json_to_sheet(summary);
-                XLSX.utils.book_append_sheet(wb, ws2, "بيانات الأسهم");
-                
-                // Wallet Data
-                const ws3 = XLSX.utils.json_to_sheet(store.state.walletTransactions);
-                XLSX.utils.book_append_sheet(wb, ws3, "المحفظة النقدية");
-                
-                XLSX.writeFile(wb, `ER1991_Full_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-                showToast('تم تصدير التقرير الكامل بنجاح');
-            },
-            
-            generateCustomReport() {
-                const fromDate = $('report-from').value;
-                const toDate = $('report-to').value;
-                const reportType = $('report-type').value;
-                const format = $('report-format').value;
-                
-                let data = [];
-                let filename = '';
-                
-                if (reportType === 'trading') {
-                    data = store.state.tradingRequests.filter(tx => {
-                        if (!tx.date) return false;
-                        const txDate = new Date(tx.date);
-                        const from = fromDate ? new Date(fromDate) : new Date('2000-01-01');
-                        const to = toDate ? new Date(toDate) : new Date('2100-01-01');
-                        return txDate >= from && txDate <= to;
-                    });
-                    filename = 'تقرير_التداول';
-                } else if (reportType === 'performance') {
-                    const summary = calculations.calculateStockSummary();
-                    data = summary;
-                    filename = 'تقرير_الأداء';
-                }
-                
-                if (format === 'excel' || format === 'csv') {
-                    const ws = XLSX.utils.json_to_sheet(data);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, "Report");
-                    XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.${format === 'csv' ? 'csv' : 'xlsx'}`);
-                } else {
-                    // Generate PDF/Image
-                    const element = document.querySelector('#view-dashboard');
-                    html2canvas(element).then(canvas => {
-                        const link = document.createElement('a');
-                        link.download = `${filename}_${new Date().toISOString().split('T')[0]}.png`;
-                        link.href = canvas.toDataURL();
-                        link.click();
-                    });
-                }
-                
-                showToast(`تم إنشاء التقرير بنجاح`);
-            }
-        };
-
-        const importData = {
-            selectedFile: null,
-            previewData: [],
-            
-            handleFileSelect(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-                
-                this.selectedFile = file;
-                
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Get first sheet
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    
-                    // Convert to JSON
-                    this.previewData = XLSX.utils.sheet_to_json(worksheet);
-                    
-                    // Show preview
-                    this.showPreview();
-                };
-                reader.readAsArrayBuffer(file);
-            },
-            
-            showPreview() {
-                const preview = $('import-preview');
-                const table = $('preview-table');
-                
-                if (this.previewData.length === 0) {
-                    preview.classList.add('hidden');
-                    return;
-                }
-                
-                // Clear table
-                table.innerHTML = '';
-                
-                // Create header
-                const thead = document.createElement('thead');
-                const headerRow = document.createElement('tr');
-                
-                // Get column names from first row
-                const columns = Object.keys(this.previewData[0]);
-                columns.forEach(col => {
-                    const th = document.createElement('th');
-                    th.textContent = col;
-                    headerRow.appendChild(th);
-                });
-                
-                thead.appendChild(headerRow);
-                table.appendChild(thead);
-                
-                // Create body with first 5 rows
-                const tbody = document.createElement('tbody');
-                this.previewData.slice(0, 5).forEach(row => {
-                    const tr = document.createElement('tr');
-                    columns.forEach(col => {
-                        const td = document.createElement('td');
-                        td.textContent = row[col] || '';
-                        tr.appendChild(td);
-                    });
-                    tbody.appendChild(tr);
-                });
-                
-                table.appendChild(tbody);
-                preview.classList.remove('hidden');
-            },
-            
-            confirmImport() {
-                if (this.previewData.length === 0) {
-                    showToast('لا توجد بيانات للاستيراد', 'error');
-                    return;
-                }
-                
-                // Map Excel columns to our data structure
-                const importedData = this.previewData.map(row => {
-                    // This mapping depends on your Excel structure
-                    // You'll need to adjust based on actual column names
-                    return {
-                        timestamp: row['طابع زمني'] || Date.now().toString(),
-                        email: row['عنوان البريد الإلكتروني'] || store.state.user.email,
-                        type: row['نوع العملية'] || '',
-                        company: row['إسم الشركة'] || row['إسم الشركة 2'] || row['إسم الشركة 3'] || '',
-                        date: row['تاريخ الشراء'] || row['تاريخ البيع'] || row['تاريخ إضافة الأرباح'] || '',
-                        shares: parseFloat(row['عدد الأسهم'] || row['عدد الأسهم 2'] || row['عدد الأسهم الموزعة'] || 0),
-                        price: parseFloat(row['سعر السهم وقت الشراء'] || row['سعر السهم وقت البيع'] || 0),
-                        totalBeforeCommission: parseFloat(row['إجمالي الشراء بدون العمولة'] || 
-                                                         row['إجمالي البيع قبل خصم العمولة'] || 
-                                                         row['إجمالي قيمة الأرباح قبل خصم العمولة'] || 0),
-                        commission: parseFloat(row['عمولة الشراء'] || row['عمولة البيع'] || row['عمولة الأرباح'] || 0),
-                        total: parseFloat(row['إحمالي عملية الشراء'] || 
-                                         row['إحمالي عملية البيع بعد خصم العمولة'] || 
-                                         row['إجمالي عملية الأرباح بعد خصم العمولة'] || 0),
-                        reinvested: row['هذا المبلغ أعيد استثماره؟'] || 'لا',
-                        withdrawn: row['هل تم سحبه؟'] || 'لا'
-                    };
-                });
-                
-                // Add to existing data
-                store.state.tradingRequests = [...store.state.tradingRequests, ...importedData];
-                store.save();
-                
-                showToast(`تم استيراد ${importedData.length} سجل بنجاح`);
-                this.cancelImport();
-                
-                // Update all views
-                trading.updateCompanyLists();
-                trading.updateCompanySelect();
-                trading.renderTable();
-                stocks.renderTable();
-                dashboard.updateDashboard();
-            },
-            
-            cancelImport() {
-                $('excel-file').value = '';
-                $('import-preview').classList.add('hidden');
-                this.selectedFile = null;
-                this.previewData = [];
-            },
-            
-            addManualEntry() {
-                const transaction = {
-                    timestamp: Date.now().toString(),
-                    email: store.state.user.email,
-                    type: $('manual-type').value,
-                    company: $('manual-company').value,
-                    date: $('manual-date').value || new Date().toISOString().split('T')[0],
-                    shares: parseFloat($('manual-quantity').value) || 0,
-                    price: parseFloat($('manual-price').value) || 0,
-                    totalBeforeCommission: (parseFloat($('manual-quantity').value) || 0) * (parseFloat($('manual-price').value) || 0),
-                    commission: 0,
-                    total: (parseFloat($('manual-quantity').value) || 0) * (parseFloat($('manual-price').value) || 0),
-                    reinvested: 'لا',
-                    withdrawn: 'لا'
-                };
-                
-                store.state.tradingRequests.push(transaction);
-                store.save();
-                
-                showToast('تم إضافة السجل يدوياً بنجاح');
-                
-                // Clear form
-                $('manual-company').value = '';
-                $('manual-quantity').value = '';
-                $('manual-price').value = '';
-                
-                // Update views
-                trading.updateCompanyLists();
-                trading.updateCompanySelect();
-                trading.renderTable();
-                dashboard.updateDashboard();
-            }
-        };
-
-        // ==================== ACTIONS ====================
-        const actions = {
-            login(e) {
-                e.preventDefault();
-                const name = $('username').value;
-                const email = $('email').value;
-                
-                store.state.user = { name, email };
-                store.save();
-                
-                router.init();
-                showToast(`مرحباً بك ${name}`);
-            },
-            
-            logout() {
-                if (confirm('هل تريد تسجيل الخروج؟')) {
-                    store.state.user = null;
-                    store.save();
-                    location.reload();
-                }
-            },
-            
-            toggleTheme() {
-                store.state.theme = store.state.theme === 'light' ? 'dark' : 'light';
-                document.body.classList.toggle('dark-mode');
-                localStorage.setItem('theme', store.state.theme);
-                store.save();
-            },
-            
-            backupData() {
-                store.backup();
-                showToast('تم إنشاء نسخة احتياطية بنجاح');
-            },
-            
-            restoreData() {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.json';
-                input.onchange = (e) => {
-                    const file = e.target.files[0];
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const backupData = JSON.parse(e.target.result);
-                            if (confirm('هل تريد استعادة النسخة الاحتياطية؟ سيتم فقدان البيانات الحالية.')) {
-                                store.restore(backupData);
-                            }
-                        } catch (error) {
-                            showToast('خطأ في قراءة ملف النسخة الاحتياطية', 'error');
-                        }
-                    };
-                    reader.readAsText(file);
-                };
-                input.click();
-            }
-        };
-
-        // ==================== ROUTER ====================
-        const router = {
-            init() {
-                $('splash-screen').classList.add('hidden');
-                
-                if (!store.state.user) {
-                    $('auth-screen').classList.remove('hidden');
-                    return;
-                }
-                
-                $('app-screen').classList.remove('hidden');
-                $('sidebar-username').textContent = store.state.user.name;
-                $('sidebar-email').textContent = store.state.user.email;
-                
-                // Set today's date on forms
-                const today = new Date().toISOString().split('T')[0];
-                $('buy-date').value = today;
-                $('sell-date').value = today;
-                $('dividend-date').value = today;
-                $('manual-date').value = today;
-                
-                // Initialize all modules
-                trading.init();
-                wallet.init();
-                dashboard.init();
-                stocks.renderTable();
-                
-                // Show dashboard by default
-                this.navigate('dashboard');
-            },
-            
-            navigate(view) {
-                // Update sidebar
-                document.querySelectorAll('.nav-item').forEach(el => {
-                    el.classList.remove('active');
-                });
-                document.querySelector(`.nav-item[onclick*="${view}"]`).classList.add('active');
-                
-                // Update page title
-                const titles = {
-                    dashboard: 'لوحة التحكم',
-                    trading: 'طلبات التداول',
-                    stocks: 'بيانات الأسهم',
-                    wallet: 'المحفظة النقدية',
-                    reports: 'التقارير والتصدير',
-                    import: 'استيراد البيانات'
-                };
-                $('page-title').textContent = titles[view];
-                
-                // Hide all views
-                ['dashboard', 'trading', 'stocks', 'wallet', 'reports', 'import'].forEach(v => {
-                    $(`view-${v}`).classList.add('hidden');
-                });
-                
-                // Show requested view
-                $(`view-${view}`).classList.remove('hidden');
-                
-                // Close mobile menu
-                $('sidebar').classList.remove('open');
-                
-                // Update specific view if needed
-                if (view === 'stocks') {
-                    stocks.renderTable();
-                } else if (view === 'dashboard') {
-                    dashboard.updateDashboard();
-                } else if (view === 'wallet') {
-                    wallet.updateWalletDisplay();
-                }
-            }
-        };
-
-        // ==================== INITIALIZATION ====================
-        window.onload = () => {
-            // Load saved data
-            store.load();
-            
-            // Set up event listeners
-            $('login-form').addEventListener('submit', actions.login);
-            
-            // Initialize router after splash screen
-            setTimeout(() => {
-                router.init();
-            }, 1500);
-        };
-    </script>
-</body>
-</html>
+    <button class="fab" onclick="actions.openQuickAdd()"><i class="fas fa-plus"></i></button>
+<!-- PART 2: END -->
