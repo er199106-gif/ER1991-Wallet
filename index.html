@@ -1062,4 +1062,1598 @@
 
     <div id="toast-container"></div>
     <button class="fab" onclick="actions.openQuickAdd()"><i class="fas fa-plus"></i></button>
-<!-- PART 2: END -->
+<!-- PART 2: END --><!-- PART 3: START -->
+    <script>
+        // ==================== FIREBASE CONFIGURATION ====================
+        // استبدل هذه القيم بقيم مشروعك في Firebase
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+        
+        // Initialize Firebase (optional - للتخزين السحابي)
+        let db = null;
+        let auth = null;
+        try {
+            if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                console.log("Firebase initialized");
+            }
+        } catch (e) {
+            console.log("Firebase not configured, using LocalStorage only");
+        }
+
+        // ==================== STATE MANAGEMENT (STORE) ====================
+        const store = {
+            state: {
+                user: null,
+                theme: 'light',
+                activeCurrency: 'EGP',
+                lastSync: null,
+                
+                // Raw Data (like Excel Request sheets)
+                transactions: [],      // Wallet Request
+                stocks: [],           // Trading Request
+                dividends: [],        // Trading Request - Dividends
+                gold: [],             // Gold Request
+                portfolio: [],        // Portfolio Request
+                
+                // Calculated Data (like Excel Data sheets)
+                stocksData: [],       // Stocks Data
+                goldData: [],         // Gold Data
+                portfolioData: []     // Portfolio Data
+            },
+            
+            // Load data from LocalStorage
+            load() {
+                const saved = localStorage.getItem('ER1991_WALLET_DATA_v2');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        // Decrypt if password protected
+                        if (parsed.encrypted && parsed.data) {
+                            this.state = { ...this.state, ...parsed.data };
+                        } else {
+                            this.state = { ...this.state, ...parsed };
+                        }
+                    } catch (e) {
+                        console.error("Error loading data:", e);
+                    }
+                }
+                
+                // Apply theme
+                if (this.state.theme === 'dark') {
+                    document.body.classList.add('dark-mode');
+                }
+                
+                // Calculate all derived data
+                this.calculateAll();
+            },
+            
+            // Save to LocalStorage
+            save() {
+                // Recalculate before saving
+                this.calculateAll();
+                
+                const dataToSave = {
+                    ...this.state,
+                    lastSave: new Date().toISOString()
+                };
+                
+                // Encrypt if password exists
+                if (this.state.user && this.state.user.password) {
+                    localStorage.setItem('ER1991_WALLET_DATA_v2', JSON.stringify({
+                        encrypted: true,
+                        data: dataToSave
+                    }));
+                } else {
+                    localStorage.setItem('ER1991_WALLET_DATA_v2', JSON.stringify(dataToSave));
+                }
+                
+                // Sync to Firebase if available
+                this.syncToCloud();
+                
+                // Update UI
+                renderAll();
+            },
+            
+            // Calculate all derived data (Excel formulas)
+            calculateAll() {
+                this.calculateStocksData();
+                this.calculateGoldData();
+                this.calculatePortfolioData();
+            },
+            
+            // Calculate Stocks Data (like Excel Stocks Data sheet)
+            calculateStocksData() {
+                const portfolio = {};
+                
+                // Process all stock transactions
+                this.state.stocks.forEach(st => {
+                    if (!portfolio[st.name]) {
+                        portfolio[st.name] = {
+                            name: st.name,
+                            totalBuyQty: 0,
+                            totalBuyValue: 0,      // Column E
+                            totalBuyComm: 0,       // Column F
+                            lastBuyDate: null,     // Column B
+                            totalSellQty: 0,
+                            totalSellValue: 0,     // Column J
+                            totalSellComm: 0,      // Column K
+                            lastSellDate: null,    // Column G
+                            dividendsCash: 0,      // Column L
+                            dividendsShares: 0     // Column M
+                        };
+                    }
+                    
+                    const p = portfolio[st.name];
+                    
+                    if (st.type === 'buy') {
+                        p.totalBuyQty += parseFloat(st.qty);
+                        p.totalBuyValue += parseFloat(st.total);
+                        p.totalBuyComm += parseFloat(st.comm || 0);
+                        if (!p.lastBuyDate || st.date > p.lastBuyDate) {
+                            p.lastBuyDate = st.date;
+                        }
+                    } else if (st.type === 'sell') {
+                        p.totalSellQty += parseFloat(st.qty);
+                        p.totalSellValue += parseFloat(st.total);
+                        p.totalSellComm += parseFloat(st.comm || 0);
+                        if (!p.lastSellDate || st.date > p.lastSellDate) {
+                            p.lastSellDate = st.date;
+                        }
+                    }
+                });
+                
+                // Process dividends
+                this.state.dividends.forEach(div => {
+                    if (!portfolio[div.name]) {
+                        portfolio[div.name] = {
+                            name: div.name,
+                            totalBuyQty: 0, totalBuyValue: 0, totalBuyComm: 0, lastBuyDate: null,
+                            totalSellQty: 0, totalSellValue: 0, totalSellComm: 0, lastSellDate: null,
+                            dividendsCash: 0, dividendsShares: 0
+                        };
+                    }
+                    if (div.type === 'cash') {
+                        portfolio[div.name].dividendsCash += (parseFloat(div.amount) - parseFloat(div.comm || 0));
+                    } else {
+                        portfolio[div.name].dividendsShares += parseFloat(div.shares);
+                    }
+                });
+                
+                // Calculate derived values exactly like Excel
+                this.state.stocksData = Object.values(portfolio).map(p => {
+                    // Average buy price (Column D)
+                    const avgBuyPrice = p.totalBuyQty > 0 ? p.totalBuyValue / p.totalBuyQty : 0;
+                    
+                    // Average sell price (Column I)
+                    const avgSellPrice = p.totalSellQty > 0 ? p.totalSellValue / p.totalSellQty : 0;
+                    
+                    // Current holdings (Column P)
+                    const currentQty = p.totalBuyQty - p.totalSellQty + p.dividendsShares;
+                    
+                    // P/L calculation (Column N)
+                    // Excel formula: =IF(AND(J3<>"",E3<>"",C3<>0), J3 - ((E3 + L3 + (M3 * (H3 / C3)))), "")
+                    let pl = 0;
+                    if (p.totalSellValue > 0 && p.totalBuyValue > 0 && p.totalBuyQty > 0) {
+                        const costBasis = p.totalBuyValue + p.dividendsCash + (p.dividendsShares * (p.totalSellQty / p.totalBuyQty));
+                        pl = p.totalSellValue - costBasis;
+                    }
+                    
+                    // Percentage (Column O)
+                    const plPercent = (p.totalBuyValue + p.dividendsCash) > 0 ? 
+                        (pl / (p.totalBuyValue + p.dividendsCash)) * 100 : 0;
+                    
+                    // Current price per share (Column Q)
+                    const currentPrice = currentQty > 0 ? (p.totalBuyValue - p.totalSellValue) / currentQty : 0;
+                    
+                    // Current value (Column R)
+                    const currentValue = currentQty * currentPrice;
+                    
+                    return {
+                        ...p,
+                        avgBuyPrice,
+                        avgSellPrice,
+                        currentQty,
+                        currentPrice,
+                        currentValue,
+                        pl,
+                        plPercent
+                    };
+                });
+            },
+            
+            // Calculate Gold Data (like Excel Gold Data sheet)
+            calculateGoldData() {
+                const holdings = {};
+                
+                this.state.gold.forEach(g => {
+                    const key = `${g.item}-${g.karat}`;
+                    if (!holdings[key]) {
+                        holdings[key] = {
+                            item: g.item,
+                            karat: g.karat,
+                            totalGrams: 0,         // Column D
+                            totalCost: 0,          // From price * grams
+                            totalFees: 0,          // Column G
+                            lastBuyDate: null,     // Column B
+                            soldGrams: 0,          // Column J
+                            soldValue: 0,          // Column L
+                            lastSellDate: null     // Column H
+                        };
+                    }
+                    
+                    const h = holdings[key];
+                    if (g.type === 'buy') {
+                        h.totalGrams += parseFloat(g.grams);
+                        h.totalCost += (parseFloat(g.grams) * parseFloat(g.price));
+                        h.totalFees += parseFloat(g.fees || 0);
+                        if (!h.lastBuyDate || g.date > h.lastBuyDate) {
+                            h.lastBuyDate = g.date;
+                        }
+                    } else {
+                        h.soldGrams += parseFloat(g.grams);
+                        h.soldValue += (parseFloat(g.grams) * parseFloat(g.price));
+                        if (!h.lastSellDate || g.date > h.lastSellDate) {
+                            h.lastSellDate = g.date;
+                        }
+                    }
+                });
+                
+                this.state.goldData = Object.values(holdings).map(h => {
+                    const remainingGrams = h.totalGrams - h.soldGrams;  // Column P
+                    const avgPrice = h.totalGrams > 0 ? (h.totalCost + h.totalFees) / h.totalGrams : 0;  // Column E & R
+                    const currentValue = remainingGrams * avgPrice;  // Column S
+                    const pl = h.soldValue - (h.totalCost + h.totalFees);  // Column N
+                    const plPercent = (h.totalCost + h.totalFees) > 0 ? (pl / (h.totalCost + h.totalFees)) * 100 : 0;
+                    
+                    return {
+                        ...h,
+                        remainingGrams,
+                        avgPrice,
+                        currentValue,
+                        pl,
+                        plPercent
+                    };
+                });
+            },
+            
+            // Calculate Portfolio Data (like Excel Portfolio Data sheet)
+            calculatePortfolioData() {
+                const portfolios = {};
+                
+                this.state.portfolio.forEach(p => {
+                    if (!portfolios[p.name]) {
+                        portfolios[p.name] = {
+                            name: p.name,
+                            totalDeposit: 0,       // Column B
+                            totalWithdraw: 0,      // Column C
+                            totalComm: 0,          // Column D
+                            lastDeposit: null,     // Column F
+                            lastWithdraw: null     // Column G
+                        };
+                    }
+                    
+                    const port = portfolios[p.name];
+                    if (p.type === 'deposit') {
+                        port.totalDeposit += parseFloat(p.amount);
+                        port.totalComm += parseFloat(p.comm || 0);
+                        if (!port.lastDeposit || p.date > port.lastDeposit) {
+                            port.lastDeposit = p.date;
+                        }
+                    } else {
+                        port.totalWithdraw += parseFloat(p.amount);
+                        port.totalComm += parseFloat(p.comm || 0);
+                        if (!port.lastWithdraw || p.date > port.lastWithdraw) {
+                            port.lastWithdraw = p.date;
+                        }
+                    }
+                });
+                
+                this.state.portfolioData = Object.values(portfolios).map(p => ({
+                    ...p,
+                    netBalance: p.totalDeposit - p.totalWithdraw - p.totalComm  // Column E
+                }));
+            },
+            
+            // Sync to Firebase (optional)
+            async syncToCloud() {
+                if (!db || !this.state.user) return;
+                
+                try {
+                    await db.collection('users').doc(this.state.user.email).set({
+                        data: this.state,
+                        lastSync: new Date().toISOString()
+                    });
+                    this.state.lastSync = new Date().toISOString();
+                    console.log("Synced to cloud");
+                } catch (e) {
+                    console.error("Sync failed:", e);
+                }
+            },
+            
+            // Load from Firebase
+            async loadFromCloud() {
+                if (!db || !this.state.user) return false;
+                
+                try {
+                    const doc = await db.collection('users').doc(this.state.user.email).get();
+                    if (doc.exists) {
+                        const cloudData = doc.data().data;
+                        if (cloudData && cloudData.lastSave > this.state.lastSave) {
+                            this.state = { ...this.state, ...cloudData };
+                            this.save();
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Load from cloud failed:", e);
+                }
+                return false;
+            }
+        };
+
+        // ==================== HELPER FUNCTIONS ====================
+        const $ = (id) => document.getElementById(id);
+        
+        const formatMoney = (amount, currency = 'EGP') => {
+            if (amount === undefined || amount === null || isNaN(amount)) return '-';
+            return new Intl.NumberFormat('ar-EG', { 
+                style: 'currency', 
+                currency: currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        };
+        
+        const formatNumber = (num, decimals = 2) => {
+            if (num === undefined || num === null || isNaN(num)) return '-';
+            return new Intl.NumberFormat('ar-EG', { 
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }).format(num);
+        };
+        
+        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        
+        const showToast = (msg, type = 'success') => {
+            const container = $('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? 'fa-check-circle' : 
+                        type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            toast.innerHTML = `<i class="fas ${icon}"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        };
+        
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+        };
+        
+        const formatDateTime = (dateStr) => {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('ar-EG');
+        };
+
+        // ==================== ACTIONS ====================
+        const actions = {
+            // Login
+            login: (e) => {
+                e.preventDefault();
+                const name = $('username').value;
+                const email = $('email').value;
+                const password = $('password').value;
+                
+                store.state.user = { 
+                    name, 
+                    email,
+                    password: password ? btoa(password) : null, // Simple encoding
+                    loginTime: new Date().toISOString()
+                };
+                
+                // Try to load from cloud first
+                if (db) {
+                    store.loadFromCloud().then(loaded => {
+                        if (loaded) {
+                            showToast('تم استرداد البيانات من السحابة');
+                        }
+                        store.save();
+                        router.init();
+                    });
+                } else {
+                    store.save();
+                    router.init();
+                    showToast(`مرحباً بك يا ${name}`);
+                }
+            },
+            
+            // Logout
+            logout: () => {
+                if (confirm('هل تريد تسجيل الخروج؟')) {
+                    store.state.user = null;
+                    localStorage.removeItem('ER1991_WALLET_DATA_v2');
+                    location.reload();
+                }
+            },
+            
+            // Toggle Theme
+            toggleTheme: () => {
+                store.state.theme = store.state.theme === 'light' ? 'dark' : 'light';
+                document.body.classList.toggle('dark-mode');
+                store.save();
+            },
+            
+            // Open Quick Add based on current view
+            openQuickAdd: () => {
+                const currentView = document.querySelector('section:not(.hidden)').id;
+                switch(currentView) {
+                    case 'view-wallet': wallet.switchTab('add'); break;
+                    case 'view-trading': trading.switchTab('add'); break;
+                    case 'view-gold': gold.switchTab('add'); break;
+                    case 'view-portfolio': portfolio.switchTab('add'); break;
+                    default: wallet.switchTab('add');
+                }
+            },
+            
+            // Manual sync
+            syncNow: async () => {
+                if (!db) {
+                    showToast('التخزين السحابي غير مفعل', 'warning');
+                    return;
+                }
+                $('sync-status').innerHTML = '<i class="fas fa-sync fa-spin"></i> جاري المزامنة...';
+                await store.syncToCloud();
+                $('sync-status').innerHTML = '<i class="fas fa-check-circle"></i> متزامن';
+                showToast('تمت المزامنة بنجاح');
+            },
+            
+            // Import data from JSON file
+            importData: (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (confirm('استيراد البيانات سيستبدل البيانات الحالية. هل تريد المتابعة؟')) {
+                            store.state = { ...store.state, ...data };
+                            store.save();
+                            showToast('تم استيراد البيانات بنجاح');
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    } catch (err) {
+                        showToast('خطأ في قراءة الملف', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        // ==================== ROUTER ====================
+        const router = {
+            init: () => {
+                $('splash-screen').classList.add('hidden');
+                
+                if (!store.state.user) {
+                    $('auth-screen').classList.remove('hidden');
+                } else {
+                    $('app-screen').classList.remove('hidden');
+                    $('sidebar-username').innerText = store.state.user.name;
+                    $('sidebar-email').innerText = store.state.user.email;
+                    
+                    // Set default dates
+                    const today = new Date().toISOString().split('T')[0];
+                    ['t-date', 'st-date', 'pf-date', 'div-date'].forEach(id => {
+                        if ($(id)) $(id).value = today;
+                    });
+                    
+                    renderAll();
+                }
+            },
+            
+            navigate: (view) => {
+                // Update sidebar
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.querySelector(`.nav-item[onclick*="${view}"]`).classList.add('active');
+                
+                // Update header title
+                const titles = {
+                    'dashboard': 'لوحة التحكم',
+                    'wallet': 'المحفظة',
+                    'trading': 'التداول',
+                    'gold': 'الذهب',
+                    'portfolio': 'محفظة الاستثمار',
+                    'reports': 'التقارير'
+                };
+                $('page-title').innerText = titles[view];
+                
+                // Toggle views
+                ['dashboard', 'wallet', 'trading', 'gold', 'portfolio', 'reports'].forEach(v => {
+                    $(`view-${v}`).classList.add('hidden');
+                });
+                $(`view-${view}`).classList.remove('hidden');
+                
+                // Render specific view
+                switch(view) {
+                    case 'dashboard': dashboard.render(); break;
+                    case 'wallet': wallet.render(); break;
+                    case 'trading': trading.render(); break;
+                    case 'gold': gold.render(); break;
+                    case 'portfolio': portfolio.render(); break;
+                }
+                
+                // Close mobile menu
+                $('sidebar').classList.remove('open');
+                
+                // Show/hide FAB
+                const showFab = ['wallet', 'trading', 'gold', 'portfolio'].includes(view);
+                $('fab-btn').style.display = showFab ? 'flex' : 'none';
+            }
+        };
+<!-- PART 3: END --><!-- PART 4: START -->
+        // ==================== DASHBOARD MODULE ====================
+        const dashboard = {
+            charts: {},
+            
+            render: () => {
+                // Calculate all stats
+                const walletStats = dashboard.calculateWalletStats();
+                const investStats = dashboard.calculateInvestmentStats();
+                
+                // Update KPI cards
+                $('dash-income-egp').innerText = formatMoney(walletStats.incomeEGP, 'EGP');
+                $('dash-expense-egp').innerText = formatMoney(walletStats.expenseEGP, 'EGP');
+                $('dash-balance-egp').innerText = formatMoney(walletStats.balanceEGP, 'EGP');
+                
+                $('dash-stocks-value').innerText = formatMoney(investStats.stocksValue);
+                $('dash-gold-value').innerText = formatMoney(investStats.goldValue);
+                
+                const totalReturn = parseFloat(investStats.totalReturn);
+                $('dash-total-return').innerText = totalReturn + '%';
+                $('dash-total-return').className = totalReturn >= 0 ? 'kpi-value text-emerald' : 'kpi-value text-danger';
+                
+                // Render tables
+                dashboard.renderRecentTransactions();
+                dashboard.renderTopStocks();
+                
+                // Render charts
+                dashboard.renderCharts(walletStats, investStats);
+            },
+            
+            calculateWalletStats: () => {
+                const txs = store.state.transactions;
+                const incomeEGP = txs.filter(t => t.type === 'income' && t.currency === 'EGP')
+                    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                const expenseEGP = txs.filter(t => t.type === 'expense' && t.currency === 'EGP')
+                    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                
+                return {
+                    incomeEGP,
+                    expenseEGP,
+                    balanceEGP: incomeEGP - expenseEGP,
+                    incomeSAR: txs.filter(t => t.type === 'income' && t.currency === 'SAR')
+                        .reduce((sum, t) => sum + parseFloat(t.amount), 0),
+                    expenseSAR: txs.filter(t => t.type === 'expense' && t.currency === 'SAR')
+                        .reduce((sum, t) => sum + parseFloat(t.amount), 0),
+                    incomeUSD: txs.filter(t => t.type === 'income' && t.currency === 'USD')
+                        .reduce((sum, t) => sum + parseFloat(t.amount), 0),
+                    expenseUSD: txs.filter(t => t.type === 'expense' && t.currency === 'USD')
+                        .reduce((sum, t) => sum + parseFloat(t.amount), 0)
+                };
+            },
+            
+            calculateInvestmentStats: () => {
+                const stocksValue = store.state.stocksData.reduce((sum, s) => sum + (s.currentValue || 0), 0);
+                const goldValue = store.state.goldData.reduce((sum, g) => sum + (g.currentValue || 0), 0);
+                
+                const totalCost = store.state.stocksData.reduce((sum, s) => sum + (s.totalBuyValue || 0), 0) +
+                                 store.state.goldData.reduce((sum, g) => sum + ((g.totalCost || 0) + (g.totalFees || 0)), 0);
+                const totalValue = stocksValue + goldValue;
+                const totalReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100).toFixed(2) : 0;
+                
+                return {
+                    stocksValue,
+                    goldValue,
+                    totalValue,
+                    totalReturn
+                };
+            },
+            
+            renderRecentTransactions: () => {
+                const tbody = $('dash-recent-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                const recent = store.state.transactions.slice(0, 5);
+                recent.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(t.date)}</td>
+                        <td><span class="status-badge ${t.type === 'income' ? 'status-income' : 'status-expense'}">${t.type === 'income' ? 'دخل' : 'مصروف'}</span></td>
+                        <td>${t.category}</td>
+                        <td style="font-weight: 600">${formatMoney(t.amount, t.currency)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            renderTopStocks: () => {
+                const tbody = $('dash-top-stocks').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                const topStocks = store.state.stocksData
+                    .filter(s => s.currentQty > 0)
+                    .sort((a, b) => b.currentValue - a.currentValue)
+                    .slice(0, 5);
+                
+                topStocks.forEach(s => {
+                    const returnPercent = s.plPercent || 0;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 600">${s.name}</td>
+                        <td>${formatNumber(s.currentQty)}</td>
+                        <td>${formatMoney(s.currentValue)}</td>
+                        <td style="color: ${returnPercent >= 0 ? 'var(--accent-emerald)' : 'var(--danger)'}">${returnPercent.toFixed(2)}%</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            renderCharts: (walletStats, investStats) => {
+                // Assets Distribution Chart
+                const assetsCtx = $('assetsChart').getContext('2d');
+                
+                if (dashboard.charts.assets) dashboard.charts.assets.destroy();
+                
+                dashboard.charts.assets = new Chart(assetsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['المحفظة النقدية', 'الأسهم', 'الذهب'],
+                        datasets: [{
+                            data: [
+                                walletStats.balanceEGP,
+                                investStats.stocksValue,
+                                investStats.goldValue
+                            ],
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { family: 'Tajawal', size: 12 } }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + formatMoney(context.raw);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Performance Chart (Monthly comparison)
+                const perfCtx = $('performanceChart').getContext('2d');
+                
+                if (dashboard.charts.performance) dashboard.charts.performance.destroy();
+                
+                // Group transactions by month
+                const monthlyData = {};
+                const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+                
+                store.state.transactions.forEach(t => {
+                    const date = new Date(t.date);
+                    const monthKey = date.getMonth();
+                    if (!monthlyData[monthKey]) monthlyData[monthKey] = { income: 0, expense: 0 };
+                    if (t.type === 'income') monthlyData[monthKey].income += parseFloat(t.amount);
+                    else monthlyData[monthKey].expense += parseFloat(t.amount);
+                });
+                
+                const currentMonth = new Date().getMonth();
+                const last6Months = [];
+                const incomeData = [];
+                const expenseData = [];
+                
+                for (let i = 5; i >= 0; i--) {
+                    const monthIndex = (currentMonth - i + 12) % 12;
+                    last6Months.push(months[monthIndex]);
+                    incomeData.push(monthlyData[monthIndex]?.income || 0);
+                    expenseData.push(monthlyData[monthIndex]?.expense || 0);
+                }
+                
+                dashboard.charts.performance = new Chart(perfCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: last6Months,
+                        datasets: [
+                            {
+                                label: 'الدخل',
+                                data: incomeData,
+                                backgroundColor: '#10b981'
+                            },
+                            {
+                                label: 'المصروفات',
+                                data: expenseData,
+                                backgroundColor: '#ef4444'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { family: 'Tajawal' } }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatMoney(value, 'EGP').replace('ج.م.', '');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        };
+
+        // ==================== WALLET MODULE ====================
+        const wallet = {
+            currentCurrency: 'EGP',
+            
+            switchTab: (tab) => {
+                // Update tabs
+                document.querySelectorAll('#view-wallet .content-tab').forEach(t => t.classList.remove('active-tab'));
+                document.querySelector(`#view-wallet .content-tab[onclick*="'${tab}'"]`)?.classList.add('active-tab');
+                
+                // Show/hide content
+                ['stats', 'add', 'data'].forEach(t => {
+                    $(`wallet-tab-${t}`).classList.add('hidden');
+                });
+                $(`wallet-tab-${tab}`).classList.remove('hidden');
+                
+                if (tab === 'stats') wallet.renderStats();
+                if (tab === 'data') wallet.renderTable();
+            },
+            
+            setCurrency: (curr) => {
+                wallet.currentCurrency = curr;
+                
+                // Update buttons
+                document.querySelectorAll('#wallet-tab-stats .btn-sm').forEach(btn => {
+                    btn.classList.remove('active-curr');
+                    btn.style.background = '';
+                    btn.style.color = '';
+                });
+                event.target.classList.add('active-curr');
+                event.target.style.background = 'var(--accent-emerald)';
+                event.target.style.color = 'white';
+                
+                wallet.renderStats();
+            },
+            
+            render: () => {
+                wallet.renderStats();
+            },
+            
+            renderStats: () => {
+                const curr = wallet.currentCurrency;
+                const txs = store.state.transactions.filter(t => t.currency === curr);
+                
+                const income = txs.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                const expense = txs.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+                const balance = income - expense;
+                
+                $('wallet-income').innerText = formatMoney(income, curr);
+                $('wallet-expense').innerText = formatMoney(expense, curr);
+                $('wallet-balance').innerText = formatMoney(balance, curr);
+                
+                // Render expense categories chart
+                wallet.renderExpenseChart(curr);
+            },
+            
+            renderExpenseChart: (curr) => {
+                const expenses = store.state.transactions.filter(t => 
+                    t.type === 'expense' && t.currency === curr
+                );
+                
+                const categories = {};
+                expenses.forEach(e => {
+                    categories[e.category] = (categories[e.category] || 0) + parseFloat(e.amount);
+                });
+                
+                const ctx = $('expenseChart').getContext('2d');
+                
+                // Destroy existing chart
+                if (wallet.expenseChart) wallet.expenseChart.destroy();
+                
+                wallet.expenseChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(categories),
+                        datasets: [{
+                            label: 'المصروفات',
+                            data: Object.values(categories),
+                            backgroundColor: '#ef4444'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatMoney(value, curr).replace(curr, '');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+            
+            toggleCategories: () => {
+                const type = $('t-type').value;
+                $('expense-cats-group').classList.toggle('hidden', type !== 'expense');
+                $('income-cats-group').classList.toggle('hidden', type !== 'income');
+            },
+            
+            addTransaction: (e) => {
+                e.preventDefault();
+                
+                const type = $('t-type').value;
+                const category = type === 'expense' ? $('t-category-exp').value : $('t-category-inc').value;
+                
+                const tx = {
+                    id: generateId(),
+                    timestamp: new Date().toISOString(),
+                    date: $('t-date').value,
+                    amount: parseFloat($('t-amount').value),
+                    currency: $('t-currency').value,
+                    type: type,
+                    category: category,
+                    method: $('t-method').value,
+                    notes: $('t-notes').value
+                };
+                
+                store.state.transactions.unshift(tx);
+                store.save();
+                
+                $('transaction-form').reset();
+                $('t-date').value = new Date().toISOString().split('T')[0];
+                
+                showToast('تم حفظ العملية بنجاح');
+                wallet.switchTab('stats');
+            },
+            
+            deleteTransaction: (id) => {
+                if (confirm('حذف هذه العملية؟')) {
+                    store.state.transactions = store.state.transactions.filter(t => t.id !== id);
+                    store.save();
+                    wallet.renderTable();
+                    showToast('تم الحذف');
+                }
+            },
+            
+            renderTable: () => {
+                const tbody = $('wallet-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                const search = $('wallet-search').value.toLowerCase();
+                const filtered = store.state.transactions.filter(t => 
+                    t.category.toLowerCase().includes(search) ||
+                    (t.notes && t.notes.toLowerCase().includes(search))
+                );
+                
+                filtered.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(t.date)}</td>
+                        <td><span class="status-badge ${t.type === 'income' ? 'status-income' : 'status-expense'}">${t.type === 'income' ? 'دخل' : 'مصروف'}</span></td>
+                        <td>${t.category}</td>
+                        <td style="font-weight: 600">${formatMoney(t.amount, t.currency)}</td>
+                        <td>${t.currency}</td>
+                        <td>${t.method}</td>
+                        <td><button onclick="wallet.deleteTransaction('${t.id}')" class="btn btn-sm btn-outline" style="color: var(--danger)"><i class="fas fa-trash"></i></button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+
+        // ==================== TRADING MODULE ====================
+        const trading = {
+            switchTab: (tab) => {
+                document.querySelectorAll('#view-trading .content-tab').forEach(t => t.classList.remove('active-tab'));
+                document.querySelector(`#view-trading .content-tab[onclick*="'${tab}'"]`)?.classList.add('active-tab');
+                
+                ['portfolio', 'add', 'data', 'dividends'].forEach(t => {
+                    $(`trading-tab-${t}`).classList.add('hidden');
+                });
+                $(`trading-tab-${tab}`).classList.remove('hidden');
+                
+                if (tab === 'portfolio') trading.renderPortfolio();
+                if (tab === 'data') trading.renderLog();
+                if (tab === 'dividends') trading.renderDividends();
+            },
+            
+            render: () => {
+                trading.renderPortfolio();
+                trading.updateStockLists();
+            },
+            
+            updateStockLists: () => {
+                const stocks = [...new Set(store.state.stocks.map(s => s.name))];
+                const lists = ['stock-list', 'stock-list-div'];
+                
+                lists.forEach(listId => {
+                    const dl = $(listId);
+                    if (dl) {
+                        dl.innerHTML = '';
+                        stocks.forEach(s => {
+                            const op = document.createElement('option');
+                            op.value = s;
+                            dl.appendChild(op);
+                        });
+                    }
+                });
+            },
+            
+            calculateTotals: () => {
+                const qty = parseFloat($('st-qty').value) || 0;
+                const price = parseFloat($('st-price').value) || 0;
+                const comm = parseFloat($('st-comm').value) || 0;
+                
+                const totalNoComm = qty * price;
+                const total = totalNoComm + comm;
+                
+                $('st-total-no-comm').value = totalNoComm.toFixed(2);
+                $('st-total').value = total.toFixed(2);
+            },
+            
+            calculateReverse: () => {
+                const qty = parseFloat($('st-qty').value) || 0;
+                const total = parseFloat($('st-total').value) || 0;
+                const comm = parseFloat($('st-comm').value) || 0;
+                
+                if (qty > 0) {
+                    const price = (total - comm) / qty;
+                    $('st-price').value = price.toFixed(2);
+                    $('st-total-no-comm').value = (total - comm).toFixed(2);
+                }
+            },
+            
+            addTransaction: (e) => {
+                e.preventDefault();
+                
+                const st = {
+                    id: generateId(),
+                    timestamp: new Date().toISOString(),
+                    type: $('st-type').value,
+                    name: $('st-name').value,
+                    date: $('st-date').value,
+                    qty: parseFloat($('st-qty').value),
+                    price: parseFloat($('st-price').value),
+                    comm: parseFloat($('st-comm').value) || 0,
+                    total: parseFloat($('st-total').value),
+                    notes: $('st-notes').value
+                };
+                
+                store.state.stocks.unshift(st);
+                store.save();
+                
+                $('trading-form').reset();
+                $('st-date').value = new Date().toISOString().split('T')[0];
+                
+                showToast('تم تسجيل العملية');
+                trading.updateStockLists();
+                trading.switchTab('portfolio');
+            },
+            
+            deleteTransaction: (id) => {
+                if (confirm('حذف هذه العملية؟')) {
+                    store.state.stocks = store.state.stocks.filter(s => s.id !== id);
+                    store.save();
+                    trading.renderLog();
+                    trading.renderPortfolio();
+                }
+            },
+            
+            renderPortfolio: () => {
+                // Update summary cards
+                const capital = store.state.portfolioData.find(p => p.name === 'محفظة الأسهم')?.totalDeposit || 0;
+                const totalBuy = store.state.stocksData.reduce((sum, s) => sum + (s.totalBuyValue || 0), 0);
+                const totalSell = store.state.stocksData.reduce((sum, s) => sum + (s.totalSellValue || 0), 0);
+                const pl = totalSell - totalBuy;
+                
+                $('trading-capital').innerText = formatMoney(capital);
+                $('trading-total-buy').innerText = formatMoney(totalBuy);
+                $('trading-total-sell').innerText = formatMoney(totalSell);
+                $('trading-pl').innerText = formatMoney(pl);
+                $('trading-pl').style.color = pl >= 0 ? 'var(--accent-emerald)' : 'var(--danger)';
+                
+                // Render stocks data table
+                const tbody = $('stocks-data-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.stocksData.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 600">${s.name}</td>
+                        <td>${s.lastBuyDate ? formatDate(s.lastBuyDate) : '-'}</td>
+                        <td>${formatMoney(s.totalBuyValue)}</td>
+                        <td>${formatNumber(s.avgBuyPrice)}</td>
+                        <td>${formatMoney(s.totalSellValue)}</td>
+                        <td>${formatMoney(s.dividendsCash)}</td>
+                        <td>${formatNumber(s.currentQty)}</td>
+                        <td>${formatMoney(s.currentValue)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            renderLog: () => {
+                const tbody = $('trading-log-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.stocks.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(s.date)}</td>
+                        <td><span class="status-badge ${s.type === 'buy' ? 'status-buy' : 'status-sell'}">${s.type === 'buy' ? 'شراء' : 'بيع'}</span></td>
+                        <td>${s.name}</td>
+                        <td>${formatNumber(s.qty)}</td>
+                        <td>${formatNumber(s.price)}</td>
+                        <td>${formatMoney(s.comm)}</td>
+                        <td>${formatMoney(s.total)}</td>
+                        <td><button onclick="trading.deleteTransaction('${s.id}')" class="btn btn-sm btn-outline" style="color: var(--danger)"><i class="fas fa-trash"></i></button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            toggleDivInputs: () => {
+                const type = $('div-type').value;
+                const isCash = type === 'cash';
+                
+                $('div-amount-group').classList.toggle('hidden', !isCash);
+                $('div-shares-group').classList.toggle('hidden', isCash);
+                $('div-comm-group').classList.toggle('hidden', !isCash);
+            },
+            
+            addDividend: (e) => {
+                e.preventDefault();
+                
+                const div = {
+                    id: generateId(),
+                    timestamp: new Date().toISOString(),
+                    type: $('div-type').value,
+                    name: $('div-name').value,
+                    date: $('div-date').value || new Date().toISOString().split('T')[0],
+                    amount: $('div-type').value === 'cash' ? parseFloat($('div-amount').value) || 0 : 0,
+                    shares: $('div-type').value === 'shares' ? parseFloat($('div-shares').value) || 0 : 0,
+                    comm: parseFloat($('div-comm').value) || 0
+                };
+                
+                store.state.dividends.unshift(div);
+                store.save();
+                
+                $('dividend-form').reset();
+                showToast('تم تسجيل التوزيعات');
+                trading.renderDividends();
+            },
+            
+            deleteDividend: (id) => {
+                if (confirm('حذف هذه التوزيعات؟')) {
+                    store.state.dividends = store.state.dividends.filter(d => d.id !== id);
+                    store.save();
+                    trading.renderDividends();
+                }
+            },
+            
+            renderDividends: () => {
+                const tbody = $('dividends-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.dividends.forEach(d => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(d.date)}</td>
+                        <td>${d.name}</td>
+                        <td>${d.type === 'cash' ? 'نقدي' : 'أسهم'}</td>
+                        <td>${d.type === 'cash' ? formatMoney(d.amount) : formatNumber(d.shares)}</td>
+                        <td><button onclick="trading.deleteDividend('${d.id}')" class="btn btn-sm btn-outline" style="color: var(--danger)"><i class="fas fa-trash"></i></button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+<!-- PART 4: END --><!-- PART 5: START -->
+        // ==================== GOLD MODULE ====================
+        const gold = {
+            switchTab: (tab) => {
+                document.querySelectorAll('#view-gold .content-tab').forEach(t => t.classList.remove('active-tab'));
+                document.querySelector(`#view-gold .content-tab[onclick*="'${tab}'"]`)?.classList.add('active-tab');
+                
+                ['portfolio', 'add', 'data'].forEach(t => {
+                    $(`gold-tab-${t}`).classList.add('hidden');
+                });
+                $(`gold-tab-${tab}`).classList.remove('hidden');
+                
+                if (tab === 'portfolio') gold.renderPortfolio();
+                if (tab === 'data') gold.renderLog();
+            },
+            
+            render: () => {
+                gold.renderPortfolio();
+            },
+            
+            calculateTotal: () => {
+                const grams = parseFloat($('gd-grams').value) || 0;
+                const price = parseFloat($('gd-price').value) || 0;
+                const fees = parseFloat($('gd-fees').value) || 0;
+                
+                const total = (grams * price) + fees;
+                $('gd-total').value = total.toFixed(2);
+            },
+            
+            addTransaction: (e) => {
+                e.preventDefault();
+                
+                const gd = {
+                    id: generateId(),
+                    timestamp: new Date().toISOString(),
+                    type: $('gd-type').value,
+                    item: $('gd-item').value,
+                    karat: $('gd-karat').value,
+                    grams: parseFloat($('gd-grams').value),
+                    price: parseFloat($('gd-price').value),
+                    fees: parseFloat($('gd-fees').value) || 0,
+                    total: parseFloat($('gd-total').value),
+                    date: new Date().toISOString().split('T')[0]
+                };
+                
+                store.state.gold.unshift(gd);
+                store.save();
+                
+                $('gold-form').reset();
+                showToast('تم تحديث محفظة الذهب');
+                gold.switchTab('portfolio');
+            },
+            
+            deleteTransaction: (id) => {
+                if (confirm('حذف هذه العملية؟')) {
+                    store.state.gold = store.state.gold.filter(g => g.id !== id);
+                    store.save();
+                    gold.renderLog();
+                    gold.renderPortfolio();
+                }
+            },
+            
+            renderPortfolio: () => {
+                // Update summary
+                const totalBuy = store.state.goldData.reduce((sum, g) => sum + ((g.totalCost || 0) + (g.totalFees || 0)), 0);
+                const totalSell = store.state.goldData.reduce((sum, g) => sum + (g.soldValue || 0), 0);
+                const pl = totalSell - totalBuy;
+                const remainingGrams = store.state.goldData.reduce((sum, g) => sum + (g.remainingGrams || 0), 0);
+                
+                $('gold-total-buy').innerText = formatMoney(totalBuy);
+                $('gold-total-sell').innerText = formatMoney(totalSell);
+                $('gold-pl').innerText = formatMoney(pl);
+                $('gold-pl').style.color = pl >= 0 ? 'var(--accent-emerald)' : 'var(--danger)';
+                $('gold-remaining-grams').innerText = formatNumber(remainingGrams) + ' جرام';
+                
+                // Render table
+                const tbody = $('gold-data-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.goldData.forEach(g => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${g.item}</td>
+                        <td>${g.karat}</td>
+                        <td>${formatNumber(g.remainingGrams)}</td>
+                        <td>${formatNumber(g.avgPrice)}</td>
+                        <td>${formatMoney((g.totalCost || 0) + (g.totalFees || 0))}</td>
+                        <td>${formatMoney(g.currentValue)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            renderLog: () => {
+                const tbody = $('gold-log-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.gold.forEach(g => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(g.date)}</td>
+                        <td><span class="status-badge ${g.type === 'buy' ? 'status-buy' : 'status-sell'}">${g.type === 'buy' ? 'شراء' : 'بيع'}</span></td>
+                        <td>${g.item}</td>
+                        <td>${g.karat}</td>
+                        <td>${formatNumber(g.grams)}</td>
+                        <td>${formatNumber(g.price)}</td>
+                        <td>${formatMoney(g.fees)}</td>
+                        <td>${formatMoney(g.total)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+
+        // ==================== PORTFOLIO MODULE ====================
+        const portfolio = {
+            switchTab: (tab) => {
+                document.querySelectorAll('#view-portfolio .content-tab').forEach(t => t.classList.remove('active-tab'));
+                document.querySelector(`#view-portfolio .content-tab[onclick*="'${tab}'"]`)?.classList.add('active-tab');
+                
+                ['summary', 'add', 'data'].forEach(t => {
+                    $(`portfolio-tab-${t}`).classList.add('hidden');
+                });
+                $(`portfolio-tab-${tab}`).classList.remove('hidden');
+                
+                if (tab === 'summary') portfolio.renderSummary();
+                if (tab === 'data') portfolio.renderLog();
+            },
+            
+            render: () => {
+                portfolio.renderSummary();
+            },
+            
+            addTransaction: (e) => {
+                e.preventDefault();
+                
+                const pf = {
+                    id: generateId(),
+                    timestamp: new Date().toISOString(),
+                    name: $('pf-name').value,
+                    type: $('pf-type').value,
+                    amount: parseFloat($('pf-amount').value),
+                    date: $('pf-date').value,
+                    method: $('pf-method').value,
+                    comm: parseFloat($('pf-comm').value) || 0,
+                    notes: $('pf-notes').value
+                };
+                
+                store.state.portfolio.unshift(pf);
+                store.save();
+                
+                $('portfolio-form').reset();
+                $('pf-date').value = new Date().toISOString().split('T')[0];
+                
+                showToast('تم تحديث المحفظة');
+                portfolio.switchTab('summary');
+            },
+            
+            renderSummary: () => {
+                // Portfolio data table
+                const tbody = $('portfolio-data-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.portfolioData.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 600">${p.name}</td>
+                        <td style="color: var(--accent-emerald)">${formatMoney(p.totalDeposit)}</td>
+                        <td style="color: var(--danger)">${formatMoney(p.totalWithdraw)}</td>
+                        <td>${formatMoney(p.totalComm)}</td>
+                        <td style="font-weight: 700">${formatMoney(p.netBalance)}</td>
+                        <td>${p.lastDeposit ? formatDate(p.lastDeposit) : '-'}</td>
+                        <td>${p.lastWithdraw ? formatDate(p.lastWithdraw) : '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+                // Investment summary (My Investments Data)
+                const capital = store.state.portfolioData.reduce((sum, p) => sum + (p.totalDeposit || 0), 0);
+                
+                // Calculate totals based on Excel formulas
+                const stocksBuy = store.state.stocksData.reduce((sum, s) => sum + (s.totalBuyValue || 0), 0);
+                const goldBuy = store.state.goldData.reduce((sum, g) => sum + ((g.totalCost || 0) + (g.totalFees || 0)), 0);
+                const totalBuy = stocksBuy + goldBuy;
+                
+                const stocksSell = store.state.stocksData.reduce((sum, s) => sum + (s.totalSellValue || 0), 0);
+                const goldSell = store.state.goldData.reduce((sum, g) => sum + (g.soldValue || 0), 0);
+                const totalSell = stocksSell + goldSell;
+                
+                const pl = totalSell - totalBuy;
+                
+                $('inv-capital').innerText = formatMoney(capital);
+                $('inv-total-buy').innerText = formatMoney(totalBuy);
+                $('inv-total-sell').innerText = formatMoney(totalSell);
+                $('inv-total-pl').innerText = formatMoney(pl);
+                $('inv-total-pl').style.color = pl >= 0 ? 'var(--accent-emerald)' : 'var(--danger)';
+            },
+            
+            renderLog: () => {
+                const tbody = $('portfolio-log-table').querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                store.state.portfolio.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(p.date)}</td>
+                        <td>${p.name}</td>
+                        <td><span class="status-badge ${p.type === 'deposit' ? 'status-buy' : 'status-sell'}">${p.type === 'deposit' ? 'إيداع' : 'سحب'}</span></td>
+                        <td style="font-weight: 600">${formatMoney(p.amount)}</td>
+                        <td>${p.method}</td>
+                        <td>${p.comm > 0 ? formatMoney(p.comm) : '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        };
+
+        // ==================== REPORTS MODULE ====================
+        const reports = {
+            exportWallet: () => {
+                const data = store.state.transactions.map(t => ({
+                    'التاريخ': t.date,
+                    'الوقت': new Date(t.timestamp).toLocaleTimeString('ar-EG'),
+                    'النوع': t.type === 'income' ? 'دخل' : 'مصروف',
+                    'التصنيف': t.category,
+                    'المبلغ': t.amount,
+                    'العملة': t.currency,
+                    'الطريقة': t.method,
+                    'ملاحظات': t.notes || ''
+                }));
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "المحفظة");
+                
+                // Set column widths
+                ws['!cols'] = [
+                    {wch: 12}, {wch: 10}, {wch: 10}, {wch: 20}, 
+                    {wch: 12}, {wch: 8}, {wch: 15}, {wch: 30}
+                ];
+                
+                XLSX.writeFile(wb, `ER1991_Wallet_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('تم تصدير بيانات المحفظة');
+            },
+            
+            exportAllInvestments: () => {
+                const wb = XLSX.utils.book_new();
+                
+                // Stocks sheet
+                const stocksData = store.state.stocks.map(s => ({
+                    'التاريخ': s.date,
+                    'النوع': s.type === 'buy' ? 'شراء' : 'بيع',
+                    'الشركة': s.name,
+                    'الكمية': s.qty,
+                    'السعر': s.price,
+                    'العمولة': s.comm,
+                    'الإجمالي': s.total,
+                    'ملاحظات': s.notes || ''
+                }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(stocksData), "الأسهم");
+                
+                // Gold sheet
+                const goldData = store.state.gold.map(g => ({
+                    'التاريخ': g.date,
+                    'النوع': g.type === 'buy' ? 'شراء' : 'بيع',
+                    'العنصر': g.item,
+                    'العيار': g.karat,
+                    'الجرامات': g.grams,
+                    'سعر الجرام': g.price,
+                    'المصنعية': g.fees,
+                    'الإجمالي': g.total
+                }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(goldData), "الذهب");
+                
+                // Portfolio sheet
+                const pfData = store.state.portfolio.map(p => ({
+                    'التاريخ': p.date,
+                    'المحفظة': p.name,
+                    'النوع': p.type === 'deposit' ? 'إيداع' : 'سحب',
+                    'المبلغ': p.amount,
+                    'الطريقة': p.method,
+                    'العمولة': p.comm,
+                    'ملاحظات': p.notes || ''
+                }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pfData), "المحافظ");
+                
+                // Dividends sheet
+                const divData = store.state.dividends.map(d => ({
+                    'التاريخ': d.date,
+                    'الشركة': d.name,
+                    'النوع': d.type === 'cash' ? 'نقدي' : 'أسهم',
+                    'القيمة': d.type === 'cash' ? d.amount : 0,
+                    'الكمية': d.type === 'shares' ? d.shares : 0,
+                    'العمولة': d.comm || 0
+                }));
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(divData), "الأرباح");
+                
+                XLSX.writeFile(wb, `ER1991_Investments_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('تم تصدير جميع الاستثمارات');
+            },
+            
+            exportStocksData: () => {
+                const data = store.state.stocksData.map(s => ({
+                    'السهم': s.name,
+                    'آخر شراء': s.lastBuyDate || '-',
+                    'إجمالي الشراء': s.totalBuyValue,
+                    'متوسط سعر الشراء': s.avgBuyPrice,
+                    'إجمالي البيع': s.totalSellValue,
+                    'الأرباح النقدية': s.dividendsCash,
+                    'الأسهم المجانية': s.dividendsShares,
+                    'الربح/الخسارة': s.pl,
+                    'نسبة الربح %': s.plPercent,
+                    'الرصيد الحالي': s.currentQty,
+                    'متوسط التكلفة': s.currentPrice,
+                    'القيمة الحالية': s.currentValue
+                }));
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "بيانات الأسهم");
+                XLSX.writeFile(wb, `ER1991_Stocks_Data_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('تم تصدير بيانات الأسهم');
+            },
+            
+            exportGoldData: () => {
+                const data = store.state.goldData.map(g => ({
+                    'النوع': g.item,
+                    'العيار': g.karat,
+                    'إجمالي الشراء (جرام)': g.totalGrams,
+                    'إجمالي البيع (جرام)': g.soldGrams,
+                    'المتبقي (جرام)': g.remainingGrams,
+                    'متوسط سعر الشراء': g.avgPrice,
+                    'إجمالي التكلفة': (g.totalCost || 0) + (g.totalFees || 0),
+                    'إجمالي مبيعات': g.soldValue,
+                    'الربح/الخسارة': g.pl,
+                    'القيمة الحالية': g.currentValue
+                }));
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "بيانات الذهب");
+                XLSX.writeFile(wb, `ER1991_Gold_Data_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('تم تصدير بيانات الذهب');
+            },
+            
+            exportPortfolioData: () => {
+                const data = store.state.portfolioData.map(p => ({
+                    'المحفظة': p.name,
+                    'إجمالي الإيداع': p.totalDeposit,
+                    'إجمالي السحب': p.totalWithdraw,
+                    'إجمالي العمولات': p.totalComm,
+                    'الرصيد الصافي': p.netBalance,
+                    'آخر إيداع': p.lastDeposit || '-',
+                    'آخر سحب': p.lastWithdraw || '-'
+                }));
+                
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "بيانات المحافظ");
+                XLSX.writeFile(wb, `ER1991_Portfolio_Data_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('تم تصدير بيانات المحافظ');
+            },
+            
+            exportTradingLog: () => {
+                reports.exportAllInvestments();
+            },
+            
+            exportGoldLog: () => {
+                reports.exportAllInvestments();
+            },
+            
+            exportPortfolioLog: () => {
+                reports.exportAllInvestments();
+            },
+            
+            captureDashboard: () => {
+                const element = $('view-dashboard');
+                html2canvas(element, { scale: 2 }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `ER1991_Dashboard_${new Date().toISOString().split('T')[0]}.png`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                    showToast('تم حفظ الصورة');
+                });
+            },
+            
+            exportBackup: () => {
+                const backupData = {
+                    exportDate: new Date().toISOString(),
+                    user: store.state.user?.email || 'unknown',
+                    version: '2.0',
+                    data: store.state
+                };
+                
+                const dataStr = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `ER1991_Backup_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast('تم حفظ النسخة الاحتياطية');
+            }
+        };
+
+        // ==================== GLOBAL RENDER ====================
+        function renderAll() {
+            dashboard.render();
+            wallet.render();
+            trading.render();
+            gold.render();
+            portfolio.render();
+        }
+
+        // ==================== INITIALIZATION ====================
+        window.onload = () => {
+            // Load data
+            store.load();
+            
+            // Setup event listeners
+            $('login-form').addEventListener('submit', actions.login);
+            $('transaction-form').addEventListener('submit', wallet.addTransaction);
+            $('trading-form').addEventListener('submit', trading.addTransaction);
+            $('dividend-form').addEventListener('submit', trading.addDividend);
+            $('gold-form').addEventListener('submit', gold.addTransaction);
+            $('portfolio-form').addEventListener('submit', portfolio.addTransaction);
+            
+            // Mobile menu button
+            if (window.innerWidth <= 1024) {
+                $('mobile-menu-btn').style.display = 'flex';
+            }
+            window.addEventListener('resize', () => {
+                $('mobile-menu-btn').style.display = window.innerWidth <= 1024 ? 'flex' : 'none';
+            });
+            
+            // Simulate loading
+            let progress = 0;
+            const loadingBar = $('loading-bar');
+            const loadingInterval = setInterval(() => {
+                progress += Math.random() * 30;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(loadingInterval);
+                    setTimeout(() => {
+                        router.init();
+                    }, 500);
+                }
+                loadingBar.style.width = progress + '%';
+            }, 200);
+        };
+
+        // Service Worker for offline support (optional)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => {
+                console.log('Service Worker registration failed:', err);
+            });
+        }
+    </script>
+</body>
+</html>
+<!-- PART 5: END - COMPLETE -->
